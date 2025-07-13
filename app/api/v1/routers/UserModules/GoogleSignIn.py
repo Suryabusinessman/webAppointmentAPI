@@ -5,10 +5,8 @@ from sqlalchemy.orm import Session
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 from app.core.database import get_db
-from app.models.UserModules.users import User
-from app.models.UserModules.authmodules import UserSession
-from app.models.UserModules.usertypes import UserType
-from app.models.BusinessModules.businessmanuser import BusinessmanUser
+# Service layer import
+from app.services.UserModules.googleauthservices import GoogleAuthService
 from datetime import datetime, timedelta
 import random
 import string
@@ -60,18 +58,7 @@ class GoogleTokenSchema(BaseModel, extra=Extra.allow):
             data['user_type_id'] = int(data['user_type_id'])
         super().__init__(**data)
 
-def generate_random_password(length: int = 12) -> str:
-    chars = string.ascii_letters + string.digits + string.punctuation
-    return ''.join(random.choice(chars) for _ in range(length))
 
-def create_access_token(user: User) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {
-        "sub": str(user.User_Id),
-        "email": user.Email,
-        "exp": expire,
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 @router.post("/auth/google")
 def google_login(data: GoogleTokenSchema, request: Request, db: Session = Depends(get_db), secret_key: str = Header(None)):
@@ -81,14 +68,12 @@ def google_login(data: GoogleTokenSchema, request: Request, db: Session = Depend
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid SECRET_KEY provided."
         )
-    print("Google login request received with data:", data)
     try:
         idinfo = id_token.verify_oauth2_token(
             data.token,
             grequests.Request(),
             CLIENT_ID
         )
-
         email = idinfo.get("email")
         full_name = idinfo.get("name")
         picture = idinfo.get("picture")
@@ -96,83 +81,39 @@ def google_login(data: GoogleTokenSchema, request: Request, db: Session = Depend
         if not email:
             raise HTTPException(status_code=400, detail="Email not found in token")
 
-        user = db.query(User).filter(User.Email == email).first()
+        # Prepare extra fields
+        extra_fields = {}
+        for field in ['state', 'city', 'postal_code', 'address']:
+            if hasattr(data, field):
+                extra_fields[field.capitalize() if field != 'postal_code' else 'Postal_Code'] = getattr(data, field)
 
-        if user:
-            # If user already exists, do not allow sign up again
-            raise HTTPException(status_code=400, detail="User with this email already exists. Please sign in instead.")
-
-        # New user: store all info
-        user = User(
-            Email=email,
-            Full_Name=full_name,
-            Profile_Image=picture,
-            Password_Hash=generate_random_password(),
-            Is_Verified=True,
-            Is_Active='Y',
-            Is_Deleted='N',
-            User_Type_Id=data.user_type_id,
-            Added_On=datetime.utcnow(),
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        # If user_type_id == 2 (Businessman), insert into businessmanusers
-        if data.user_type_id == 2:
-            # Check for all required fields
-            if not (data.business_type_ids and data.brand_name):
-                raise HTTPException(status_code=400, detail="Businessman registration requires business_type_ids (array) and brand_name. Please provide all required fields.")
-            # Use empty string if business_type_name is missing
-            business_type_name = data.business_type_name if data.business_type_name is not None else ""
-            # Prepare extra fields if present
-            extra_fields = {}
-            for field in ['state', 'city', 'postal_code', 'address']:
-                if hasattr(data, field):
-                    extra_fields[field.capitalize() if field != 'postal_code' else 'Postal_Code'] = getattr(data, field)
-            # Insert a record for each business_type_id
-            for business_type_id in data.business_type_ids:
-                business_user = BusinessmanUser(
-                    User_Id=user.User_Id,
-                    User_Type_Id=data.user_type_id,
-                    Business_Type_Id=business_type_id,
-                    Brand_Name=data.brand_name,
-                    Business_Type_Name=business_type_name,
-                    Is_Active='Y',
-                    Is_Deleted='N',
-                    Added_On=datetime.utcnow(),
-                    **{k: v for k, v in extra_fields.items() if v is not None and hasattr(BusinessmanUser, k)}
-                )
-                db.add(business_user)
-            db.commit()
-        # If user exists, do not update user info, just create a session
-        access_token = create_access_token(user)
         device_info, ip_address = get_device_info_and_ip(request)
-
-        user_session = UserSession(
-            User_Id=user.User_Id,
-            Device_Info=device_info,
-            IP_Address=ip_address,
-            Token=access_token,
-            Is_Active=True,
-            Created_At=datetime.utcnow(),
-            Login_Timestamp=datetime.utcnow()
+        service = GoogleAuthService(db)
+        result = service.google_signin(
+            email=email,
+            full_name=full_name,
+            picture=picture,
+            user_type_id=data.user_type_id,
+            business_type_ids=data.business_type_ids,
+            brand_name=data.brand_name,
+            business_type_name=data.business_type_name,
+            extra_fields=extra_fields,
+            device_info=device_info,
+            ip_address=ip_address
         )
-        db.add(user_session)
-        db.commit()
-
-        return {
-            "message": "Login successful",
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": {
-                "email": user.Email,
-                "full_name": user.Full_Name,
-                "user_id": user.User_Id,
-                "user_type": user.User_Type_Id,
-                "is_verified": user.Is_Verified
-            }
-        }
-
+        # If tuple, it's (dict, status_code)
+        if isinstance(result, tuple):
+            # Patch the status key if present
+            if isinstance(result[0], dict) and "success" in result[0]:
+                result_dict = result[0]
+                result_dict["status"] = "success" if result_dict["success"] else "failed"
+                del result_dict["success"]
+                return result_dict, result[1]
+            return result
+        # Patch the status key if present
+        if isinstance(result, dict) and "success" in result:
+            result["status"] = "success" if result["success"] else "failed"
+            del result["success"]
+        return result
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
