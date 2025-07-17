@@ -1,8 +1,10 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
 from app.repositories.BusinessModules.businesstype import BusinessTypeRepository
 from app.schemas.BusinessModules.businesstype import BusinessTypeCreate, BusinessTypeUpdate
+from app.utils.file_upload import save_upload_file
+from typing import Optional
 
-
+UPLOAD_DIRECTORY = "uploads/business_media"
 
 class BusinessTypeService:
     def __init__(self, business_type_repository: BusinessTypeRepository, security_key: str):
@@ -42,7 +44,7 @@ class BusinessTypeService:
             "data": business_type
         }
 
-    def create_business_type(self, business_type_data: BusinessTypeCreate, security_key: str, added_by: int):
+    def create_business_type(self, business_type_data: BusinessTypeCreate, business_media: Optional[UploadFile], security_key: str, added_by: int):
         """Create a new business type."""
         self.validate_security_key(security_key)
 
@@ -53,6 +55,9 @@ class BusinessTypeService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Business Type with name '{business_type_data.Business_Type_Name}' already exists."
             )
+
+        if business_media:
+            business_type_data.Business_Media = save_upload_file(business_media, UPLOAD_DIRECTORY)
 
         # Create the new business type
         new_business_type = self.business_type_repository.create(business_type_data, added_by)
@@ -67,7 +72,7 @@ class BusinessTypeService:
             "data": new_business_type
         }
 
-    def update_business_type(self, business_type_id: int, business_type_data: BusinessTypeUpdate, security_key: str, modified_by: int):
+    def update_business_type(self, business_type_id: int, business_type_data: BusinessTypeUpdate, business_media: Optional[UploadFile], security_key: str, modified_by: int):
         """Update an existing business type."""
         self.validate_security_key(security_key)
 
@@ -80,13 +85,16 @@ class BusinessTypeService:
             )
 
         # Prevent updating to a duplicate name
-        if business_type_data.Business_Type_Name:
+        if business_type_data.Business_Type_Name is not None:
             existing_business_type = self.business_type_repository.get_by_name(business_type_data.Business_Type_Name)
             if existing_business_type and existing_business_type.Business_Type_Id != business_type_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Another business type with name '{business_type_data.Business_Type_Name}' already exists."
                 )
+
+        if business_media:
+            business_type_data.Business_Media = save_upload_file(business_media, UPLOAD_DIRECTORY)
 
         # Update the business type
         updated_business_type = self.business_type_repository.update(business_type_id, business_type_data, modified_by)

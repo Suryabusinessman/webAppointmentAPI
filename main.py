@@ -32,6 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
 from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
+from fastapi.staticfiles import StaticFiles
 
 from app.core.middleware import add_middleware
 from app.api.v1.routers import auth
@@ -65,6 +66,9 @@ app = FastAPI(
 
 # Add middleware
 add_middleware(app)
+
+# Mount the static files directory
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routers with API key validation
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"], dependencies=[Depends(validate_api_key)])

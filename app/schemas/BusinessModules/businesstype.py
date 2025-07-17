@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional
 from datetime import datetime
+from fastapi import Request
 
 # ----------- Base Schema -----------
 
@@ -25,16 +26,16 @@ class BusinessTypeCreate(BusinessTypeBase):
 # ----------- Update Schema -----------
 
 class BusinessTypeUpdate(BaseModel):
-    Business_Type_Name: Optional[str]
-    Business_Type_Desc: Optional[str]
-    Business_Code: Optional[str]
-    Business_Status: Optional[str]
-    Is_Active: Optional[str] = 'Y'
-    Business_Media: Optional[str]
-    Modified_By: Optional[int]
-    Modified_On: Optional[datetime] = datetime.utcnow()
-    Is_Deleted: Optional[str]
-    Deleted_By: Optional[int]
+    Business_Type_Name: Optional[str] = None
+    Business_Type_Desc: Optional[str] = None
+    Business_Code: Optional[str] = None
+    Business_Status: Optional[str] = None
+    Is_Active: Optional[str] = None
+    Business_Media: Optional[str] = None
+    Modified_By: Optional[int] = None
+    Modified_On: Optional[datetime] = None
+    Is_Deleted: Optional[str] = None
+    Deleted_By: Optional[int] = None
 
 # ----------- Output Schema -----------
 
@@ -43,6 +44,7 @@ class BusinessTypeOut(BusinessTypeBase):
     Added_On: datetime
     Modified_On: Optional[datetime]= datetime.utcnow()
     Deleted_On: Optional[datetime]= datetime.utcnow()
+    Business_Media_URL: Optional[str] = None
 
     class Config:
         orm_mode = True
