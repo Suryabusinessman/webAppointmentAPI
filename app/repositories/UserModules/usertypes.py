@@ -11,7 +11,7 @@ class UserTypeRepository:
 
     def get_all(self):
         """Fetch all active user types."""
-        user_types = self.db.query(UserType).filter(UserType.Is_Deleted == 'N').all()
+        user_types = self.db.query(UserType).filter(UserType.is_active == 'Y').all()
         if not user_types:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -20,10 +20,9 @@ class UserTypeRepository:
         return user_types
 
     def get_by_id(self, user_type_id: int):
-        """Fetch a user type by its ID."""
+        """Fetch a user type by its ID (regardless of active status)."""
         user_type = self.db.query(UserType).filter(
-            UserType.User_Type_Id == user_type_id,
-            UserType.Is_Deleted == 'N'
+            UserType.user_type_id == user_type_id
         ).first()
         if not user_type:
             raise HTTPException(
@@ -32,11 +31,24 @@ class UserTypeRepository:
             )
         return user_type
 
+    def get_active_by_id(self, user_type_id: int):
+        """Fetch an active user type by its ID."""
+        user_type = self.db.query(UserType).filter(
+            UserType.user_type_id == user_type_id,
+            UserType.is_active == 'Y'
+        ).first()
+        if not user_type:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Active user type with ID {user_type_id} not found."
+            )
+        return user_type
+
     def get_by_name(self, user_type_name: str):
         """Fetch a user type by its name."""
         user_type = self.db.query(UserType).filter(
-            UserType.User_Type_Name == user_type_name,
-            UserType.Is_Deleted == 'N'
+            UserType.type_name == user_type_name,
+            UserType.is_active == 'Y'
         ).first()
         # if not user_type:
         #     raise HTTPException(
@@ -49,24 +61,21 @@ class UserTypeRepository:
         """Create a new user type."""
         # Check if a user type with the same name already exists
         existing_user_type = self.db.query(UserType).filter(
-            UserType.User_Type_Name == user_type_data.User_Type_Name,
-            UserType.Is_Deleted == 'N'
+            UserType.type_name == user_type_data.type_name,
+            UserType.is_active == 'Y'
         ).first()
 
         # Log a message if the user type already exists
         if existing_user_type:
-            print(f"User type with name '{user_type_data.User_Type_Name}' already exists. Creating a new user type.")
+            print(f"User type with name '{user_type_data.type_name}' already exists. Creating a new user type.")
 
         # Create the new user type regardless of whether the name exists
         new_user_type = UserType(
-            User_Type_Name=user_type_data.User_Type_Name,
-            User_Type_Desc=user_type_data.User_Type_Desc,
-            Default_Page=user_type_data.Default_Page,
-            Is_Member=user_type_data.Is_Member,
-            Is_Active=user_type_data.Is_Active,
-            Is_Deleted='N',
-            Added_By=added_by,
-            Added_On=datetime.utcnow()
+            type_name=user_type_data.type_name,
+            description=user_type_data.description,
+            default_page=user_type_data.default_page,
+            permissions=user_type_data.permissions,
+            is_active=user_type_data.is_active
         )
         self.db.add(new_user_type)
         self.db.commit()
@@ -78,45 +87,92 @@ class UserTypeRepository:
         user_type = self.get_by_id(user_type_id)  # Ensure the user type exists
 
         # Check if the new name already exists for another user type
-        if user_type_data.User_Type_Name:
+        if user_type_data.type_name:
             existing_user_type = self.db.query(UserType).filter(
-                UserType.User_Type_Name == user_type_data.User_Type_Name,
-                UserType.User_Type_Id != user_type_id,
-                UserType.Is_Deleted == 'N'
+                UserType.type_name == user_type_data.type_name,
+                UserType.user_type_id != user_type_id,
+                UserType.is_active == 'Y'
             ).first()
             if existing_user_type:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"User type with name '{user_type_data.User_Type_Name}' already exists."
+                    detail=f"User type with name '{user_type_data.type_name}' already exists."
                 )
-            user_type.User_Type_Name = user_type_data.User_Type_Name
+            user_type.type_name = user_type_data.type_name
 
         # Update other fields if provided
-        if user_type_data.User_Type_Desc:
-            user_type.User_Type_Desc = user_type_data.User_Type_Desc
-        if user_type_data.Default_Page:
-            user_type.Default_Page = user_type_data.Default_Page
-        if user_type_data.Is_Member is not None:
-            user_type.Is_Member = user_type_data.Is_Member
-        if user_type_data.Is_Active is not None:
-            user_type.Is_Active = user_type_data.Is_Active
-
-        # Update audit fields
-        user_type.Modified_By = modified_by
-        user_type.Modified_On = datetime.utcnow()
+        if user_type_data.description:
+            user_type.description = user_type_data.description
+        if user_type_data.default_page:
+            user_type.default_page = user_type_data.default_page
+        if user_type_data.permissions:
+            user_type.permissions = user_type_data.permissions
+        if user_type_data.is_active:
+            user_type.is_active = user_type_data.is_active
 
         self.db.commit()
         self.db.refresh(user_type)
         return user_type
 
     def delete(self, user_type_id: int, deleted_by: int):
-        """Soft delete a user type by its ID."""
+        """Delete a user type by its ID."""
         user_type = self.get_by_id(user_type_id)  # Ensure the user type exists
 
-        # Perform a soft delete
-        user_type.Is_Deleted = 'Y'
-        user_type.Deleted_By = deleted_by
-        user_type.Deleted_On = datetime.utcnow()
+        # Soft delete the user type by setting is_active to 'N'
+        user_type.is_active = 'N'
 
         self.db.commit()
-        return {"status": "success","color":"success","message": f"User type with ID {user_type_id} deleted successfully."}
+        self.db.refresh(user_type)
+        return user_type
+
+    def activate(self, user_type_id: int):
+        """Activate a user type by setting is_active to 'Y'."""
+        user_type = self.db.query(UserType).filter(
+            UserType.user_type_id == user_type_id
+        ).first()
+        if not user_type:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User type with ID {user_type_id} not found."
+            )
+        
+        user_type.is_active = 'Y'
+        self.db.commit()
+        self.db.refresh(user_type)
+        return user_type
+
+    def deactivate(self, user_type_id: int):
+        """Deactivate a user type by setting is_active to 'N'."""
+        user_type = self.db.query(UserType).filter(
+            UserType.user_type_id == user_type_id
+        ).first()
+        if not user_type:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User type with ID {user_type_id} not found."
+            )
+        
+        user_type.is_active = 'N'
+        self.db.commit()
+        self.db.refresh(user_type)
+        return user_type
+
+    def get_active(self):
+        """Fetch all active user types."""
+        user_types = self.db.query(UserType).filter(UserType.is_active == 'Y').all()
+        if not user_types:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active user types found in the database."
+            )
+        return user_types
+
+    def get_inactive(self):
+        """Fetch all inactive user types."""
+        user_types = self.db.query(UserType).filter(UserType.is_active == 'N').all()
+        if not user_types:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No inactive user types found in the database."
+            )
+        return user_types

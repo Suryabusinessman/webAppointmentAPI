@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from app.auth.security import SECRET_KEY, ALGORITHM
-from app.schemas.UserModules.users import User
+from app.models.UserModules.users import User
 
 # OAuth2 scheme for extracting the token
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
@@ -36,5 +36,10 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         headers={"WWW-Authenticate": "Bearer"},
     )
     payload = verify_token(token, credentials_exception)
-    user = User(**payload)  # Assuming User schema matches the payload
+    # Create a User instance with the payload data
+    user = User(
+        user_id=payload.get("sub"),
+        email=payload.get("email"),
+        username=payload.get("username", "")
+    )
     return user

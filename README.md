@@ -105,7 +105,7 @@ uvicorn main:app --reload
 if browser blank
 uvicorn main:app --reload --port 8001
 ```
-git hub code space : python -m uvicorn main:app --host 0.0.0.0 --port 8000
+
 The application will be available at `http://127.0.0.1:8000`.
 
 ## Deployment with Docker

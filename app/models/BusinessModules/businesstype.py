@@ -1,32 +1,30 @@
-from sqlalchemy import Column, Integer, String, CHAR, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Enum
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 from app.core.database import Base
 
 class BusinessType(Base):
-    __tablename__ = 'businesstypes'
+    __tablename__ = "business_types"
 
-    Business_Type_Id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    Business_Type_Name = Column(String(100), unique=True, index=True, nullable=False)
-    Business_Type_Desc = Column(String(255), nullable=True)
-    Business_Code = Column(String(100), nullable=True)
-    Business_Status = Column(String(50), nullable=True)
-    Is_Active = Column(CHAR(1), nullable=False, default='Y')
-    Business_Media = Column(String(500), nullable=True)
-    Added_By = Column(Integer, nullable=True)
-    Added_On = Column(DateTime, default=datetime.utcnow, nullable=False)
+    business_type_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    type_name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    
+    # Original Business_Media field (restored)
+    business_media = Column(String(500), nullable=True)
+    
+    # New fields for enhanced functionality
+    icon = Column(String(100), nullable=True)
+    color = Column(String(7), nullable=True)
+    features = Column(Text, nullable=True)  # JSON string
+    
+    is_active = Column(Enum("Y", "N"), default="Y", nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    Modified_By = Column(Integer, nullable=True)
-    Modified_On = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    Deleted_By = Column(Integer, nullable=True)
-    Deleted_On = Column(DateTime, default=datetime.utcnow, nullable=True)
-
-    Is_Deleted = Column(CHAR(1), nullable=False, default='N')
-
-    # Define the relationship to the BusinessmanUser model
-    bussinessman_users = relationship("BusinessmanUser", back_populates="businesstype")
-    # Define the relationship to the BusinessCategory model
-    businesscategory = relationship("BusinessCategory", back_populates="businesstype")
+    # Relationships
+    business_users = relationship("BusinessUser", back_populates="business_type")
+    business_categories = relationship("BusinessCategory", back_populates="business_type")
 
     

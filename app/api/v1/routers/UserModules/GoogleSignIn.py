@@ -13,26 +13,30 @@ import string
 from dotenv import load_dotenv
 from jose import jwt
 import os
-from typing import List, Optional
+from typing import Optional
+import logging
 
 load_dotenv()
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")  # Replace with actual client ID
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = "88AC1A95756D9259823CCA6E17145A0"  # Same as security.py
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 # ---------------------- Utility Function ----------------------
 
 def validate_secret_key(secret_key: str = Header(...)):
-    if secret_key != SECRET_KEY:
+    """Validate the secret key from request header."""
+    if not secret_key or secret_key != SECRET_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid SECRET_KEY provided."
         )
 
 def get_device_info_and_ip(request: Request):
+    """Extract device info and IP address from request."""
     device_info = request.headers.get("User-Agent", "Unknown Device")
     ip_address = request.headers.get("X-Forwarded-For")
     if ip_address:
@@ -43,77 +47,94 @@ def get_device_info_and_ip(request: Request):
 
 class GoogleTokenSchema(BaseModel, extra=Extra.allow):
     token: str
-    user_type_id: int
-    business_type_ids: Optional[List[int]] = None
-    brand_name: Optional[str] = None
-    business_type_name: Optional[str] = None
     state: Optional[str] = None
     city: Optional[str] = None
     postal_code: Optional[str] = None
     address: Optional[str] = None
 
-    def __init__(self, **data):
-        # Convert user_type_id to int if string
-        if 'user_type_id' in data and isinstance(data['user_type_id'], str):
-            data['user_type_id'] = int(data['user_type_id'])
-        super().__init__(**data)
-
-
-
 @router.post("/auth/google")
-def google_login(data: GoogleTokenSchema, request: Request, db: Session = Depends(get_db), secret_key: str = Header(None)):
-    # Validate SECRET_KEY from header
-    if not secret_key or secret_key != SECRET_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid SECRET_KEY provided."
-        )
+async def google_login(
+    data: GoogleTokenSchema, 
+    request: Request, 
+    db: Session = Depends(get_db), 
+    secret_key: str = Header(None)
+):
+    """
+    Handle Google OAuth login/registration for simple users only.
+    
+    This endpoint:
+    1. Validates the Google ID token
+    2. Checks if user exists
+    3. Creates new user if doesn't exist (always as user_type_id = 3)
+    4. Returns consistent response format
+    """
     try:
-        idinfo = id_token.verify_oauth2_token(
-            data.token,
-            grequests.Request(),
-            CLIENT_ID
-        )
+        # Validate SECRET_KEY from header
+        validate_secret_key(secret_key)
+        
+        # Validate Google ID token
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                data.token,
+                grequests.Request(),
+                CLIENT_ID
+            )
+        except ValueError as e:
+            logger.warning(f"Invalid Google token provided: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Invalid Google token. Please try again."
+            )
+        
+        # Extract user information from token
         email = idinfo.get("email")
         full_name = idinfo.get("name")
         picture = idinfo.get("picture")
 
         if not email:
-            raise HTTPException(status_code=400, detail="Email not found in token")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Email not found in Google token"
+            )
+        
+        if not full_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Name not found in Google token"
+            )
 
-        # Prepare extra fields
+        # Prepare extra fields for user creation
         extra_fields = {}
         for field in ['state', 'city', 'postal_code', 'address']:
-            if hasattr(data, field):
+            if hasattr(data, field) and getattr(data, field):
                 extra_fields[field.capitalize() if field != 'postal_code' else 'Postal_Code'] = getattr(data, field)
 
+        # Get device info and IP address
         device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Initialize service and process Google signin
         service = GoogleAuthService(db)
         result = service.google_signin(
             email=email,
             full_name=full_name,
             picture=picture,
-            user_type_id=data.user_type_id,
-            business_type_ids=data.business_type_ids,
-            brand_name=data.brand_name,
-            business_type_name=data.business_type_name,
             extra_fields=extra_fields,
             device_info=device_info,
             ip_address=ip_address
         )
-        # If tuple, it's (dict, status_code)
-        if isinstance(result, tuple):
-            # Patch the status key if present
-            if isinstance(result[0], dict) and "success" in result[0]:
-                result_dict = result[0]
-                result_dict["status"] = "success" if result_dict["success"] else "failed"
-                del result_dict["success"]
-                return result_dict, result[1]
-            return result
-        # Patch the status key if present
-        if isinstance(result, dict) and "success" in result:
-            result["status"] = "success" if result["success"] else "failed"
-            del result["success"]
+        
+        # Log successful Google authentication
+        logger.info(f"Google authentication successful for email: {email}")
+        
         return result
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Log unexpected errors and return generic message
+        logger.error(f"Unexpected error in Google login: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Google authentication failed. Please try again later."
+        )

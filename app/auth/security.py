@@ -2,9 +2,9 @@ from fastapi import HTTPException, Security, Depends
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_401_UNAUTHORIZED
 from jose import jwt, JWTError
-from app.schemas.UserModules.users import User  # Import your User schema
+from app.models.UserModules.users import User  # Import User model from models
 
-API_KEY = "88AC1A95756D9259823CCA6E17145"  # Replace with your actual API key
+API_KEY = "88AC1A95756D9259823CCA6E17145A0"  # Replace with your actual API key
 SECRET_KEY = "88AC1A95756D9259823CCA6E17145A0"
 ALGORITHM = "HS256"
 API_KEY_NAME = "X-API-Key"
@@ -29,7 +29,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return User(id=user_id, username=payload.get("username"), email=payload.get("email"))
+        return User(user_id=user_id, email=payload.get("email"))
     except JWTError:
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,

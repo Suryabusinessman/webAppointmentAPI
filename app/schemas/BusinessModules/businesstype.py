@@ -1,50 +1,36 @@
-from pydantic import BaseModel, validator
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any, Union
 from datetime import datetime
-from fastapi import Request
-
-# ----------- Base Schema -----------
 
 class BusinessTypeBase(BaseModel):
-    Business_Type_Name: str
-    Business_Type_Desc: Optional[str]
-    Business_Code: Optional[str]
-    Business_Status: Optional[str]
-    Is_Active: Optional[str] = 'Y'
-    Business_Media: Optional[str]
-    Added_By: Optional[int]
-    Modified_By: Optional[int]
-    Deleted_By: Optional[int]
-    Is_Deleted: Optional[str] = 'N'
-
-# ----------- Create Schema -----------
+    """Base business type model"""
+    type_name: str = Field(..., description="Business type name")
+    description: Optional[str] = Field(None, description="Business type description")
+    icon: Optional[str] = Field(None, description="Icon for business type")
+    color: Optional[str] = Field(None, description="Color code for business type")
+    features: Optional[Union[Dict[str, Any], str]] = Field(None, description="Features available for this business type (JSON object or string)")
+    business_media: Optional[str] = Field(None, description="Business media file path")
+    is_active: str = Field(default="Y", description="Active status")
 
 class BusinessTypeCreate(BusinessTypeBase):
-    # pass
-     Added_By: Optional[int]
-
-# ----------- Update Schema -----------
+    """Create business type model"""
+    pass
 
 class BusinessTypeUpdate(BaseModel):
-    Business_Type_Name: Optional[str] = None
-    Business_Type_Desc: Optional[str] = None
-    Business_Code: Optional[str] = None
-    Business_Status: Optional[str] = None
-    Is_Active: Optional[str] = None
-    Business_Media: Optional[str] = None
-    Modified_By: Optional[int] = None
-    Modified_On: Optional[datetime] = None
-    Is_Deleted: Optional[str] = None
-    Deleted_By: Optional[int] = None
+    """Update business type model"""
+    type_name: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    features: Optional[Union[Dict[str, Any], str]] = None
+    business_media: Optional[str] = None
+    is_active: Optional[str] = None
 
-# ----------- Output Schema -----------
-
-class BusinessTypeOut(BusinessTypeBase):
-    Business_Type_Id: int
-    Added_On: datetime
-    Modified_On: Optional[datetime]= datetime.utcnow()
-    Deleted_On: Optional[datetime]= datetime.utcnow()
-    Business_Media_URL: Optional[str] = None
+class BusinessTypeResponse(BusinessTypeBase):
+    """Business type response model"""
+    business_type_id: int = Field(..., description="Business type ID")
+    created_at: datetime = Field(..., description="Creation timestamp")
+    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
 
     class Config:
-        orm_mode = True
+        from_attributes = True

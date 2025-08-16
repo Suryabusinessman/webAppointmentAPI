@@ -1,46 +1,43 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
 # ----------- Base Schema -----------
 class BusinessCategoryBase(BaseModel):
-    Business_Type_Id: int
-    Business_Category_Name: str
-    Business_Category_Short_Name: str
-    Business_Category_Code: Optional[str]
-    Is_Active: Optional[str] = 'Y'
-    Business_Category_Media: Optional[str]
-    Business_Category_Description: Optional[str]
-    Added_By: Optional[int]
-    Added_On: Optional[datetime] = datetime.utcnow()
-    Is_Deleted: Optional[str] = 'N'
+    business_type_id: int = Field(..., description="Business type ID")
+    business_category_name: str = Field(..., description="Business category name")
+    business_category_short_name: str = Field(..., description="Business category short name")
+    business_category_code: Optional[str] = Field(None, description="Business category code")
+    is_active: str = Field(default="Y", description="Active status")
+    business_category_media: Optional[str] = Field(None, description="Business category media file path")
+    icon: Optional[str] = Field(None, description="Icon file path for business category")
+    business_category_description: Optional[str] = Field(None, description="Business category description")
 
 class BusinessCategoryCreate(BusinessCategoryBase):
-    # pass
-    Added_By: Optional[int]
-    Added_On: Optional[datetime] = datetime.utcnow()
+    pass
 
 # ----------- Update Schema ----------
-
 class BusinessCategoryUpdate(BaseModel):
-    Business_Type_Id: Optional[int]
-    Business_Category_Name: Optional[str]
-    Business_Category_Short_Name: Optional[str]
-    Business_Category_Code: Optional[str]
-    Is_Active: Optional[str] = 'Y'
-    Business_Category_Media: Optional[str]
-    Business_Category_Description: Optional[str]
-    Modified_By: Optional[int]
-    Modified_On: Optional[datetime] = datetime.utcnow()
-    Is_Deleted: Optional[str] = 'N'
-
+    business_type_id: Optional[int] = Field(None, description="Business type ID")
+    business_category_name: Optional[str] = Field(None, description="Business category name")
+    business_category_short_name: Optional[str] = Field(None, description="Business category short name")
+    business_category_code: Optional[str] = Field(None, description="Business category code")
+    is_active: Optional[str] = Field(None, description="Active status")
+    business_category_media: Optional[str] = Field(None, description="Business category media file path")
+    icon: Optional[str] = Field(None, description="Icon file path for business category")
+    business_category_description: Optional[str] = Field(None, description="Business category description")
 
 # ----------- Output Schema ----------
-class BusinessCategoryOut(BusinessCategoryBase):
-    Business_Category_Id: int
-    Added_On: datetime
-    Modified_On: Optional[datetime] = datetime.utcnow()
-    Deleted_On: Optional[datetime] = datetime.utcnow()
+class BusinessCategoryResponse(BusinessCategoryBase):
+    business_category_id: int = Field(..., description="Business category ID")
+    business_type_name: Optional[str] = Field(None, description="Business type name")
+    added_by: Optional[int] = Field(None, description="Added by user ID")
+    added_on: datetime = Field(..., description="Creation timestamp")
+    modified_by: Optional[int] = Field(None, description="Modified by user ID")
+    modified_on: Optional[datetime] = Field(None, description="Last update timestamp")
+    is_deleted: str = Field(default="N", description="Deleted status")
+    deleted_by: Optional[int] = Field(None, description="Deleted by user ID")
+    deleted_on: Optional[datetime] = Field(None, description="Deletion timestamp")
 
     class Config:
         orm_mode = True

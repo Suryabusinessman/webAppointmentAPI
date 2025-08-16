@@ -1,213 +1,427 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Header, File, UploadFile, Form, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status, Form, File, UploadFile
 from sqlalchemy.orm import Session
-from app.schemas.BusinessModules.businesstype import BusinessTypeCreate, BusinessTypeUpdate, BusinessTypeOut
+from app.schemas.BusinessModules.businesstype import BusinessTypeCreate, BusinessTypeUpdate, BusinessTypeResponse
 from app.services.BusinessModules.businesstype import BusinessTypeService
 from app.repositories.BusinessModules.businesstype import BusinessTypeRepository
+from app.services.SecurityModules.security_service import SecurityService
+from app.models.SecurityModules.security_events import SecurityEventType, SecurityEventSeverity
 from app.core.database import get_db
-from dotenv import load_dotenv
-import os
-from typing import Optional, List
+from app.core.config import config
+from typing import Optional
+import logging
 
-load_dotenv()
-SECURITY_KEY = os.getenv("SECRET_KEY")
+# Configure logging
+logger = logging.getLogger(__name__)
 
+# Define the router
 router = APIRouter()
 
-UPLOAD_DIRECTORY = "uploads/business_media"
+# ---------------------- Utility Function ----------------------
 
-def validate_security_key(provided_key: str):
-    """Validate the security key for API access."""
-    if provided_key != SECURITY_KEY:
+def validate_secret_key(secret_key: str = Header(..., alias="secret-key")):
+    """Validate the SECRET_KEY from the request header."""
+    if secret_key != config.SECRET_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid security key."
+            detail="Invalid SECRET_KEY provided."
         )
 
-@router.get("/all-businesstypes", response_model=dict)
+def get_device_info_and_ip(request: Request):
+    """Extract device information and IP address from the request."""
+    device_info = request.headers.get("User-Agent", "Unknown Device")
+    ip_address = request.headers.get("X-Forwarded-For")
+    if ip_address:
+        ip_address = ip_address.split(",")[0].strip()
+    else:
+        ip_address = request.client.host
+    return device_info, ip_address
+
+# ---------------------- Get All Business Types ----------------------
+
+@router.get("/all-business-types", response_model=dict)
 def get_all_business_types(
-    request: Request,
     db: Session = Depends(get_db),
-    security_key: str = Header(None)  # Accept security key in the request headers
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
 ):
     """
     Fetch all business types.
     """
-    if not security_key:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Security key is required."
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={"endpoint": "/all-business-types", "method": "GET"}
         )
-    validate_security_key(security_key)
-    service = BusinessTypeService(BusinessTypeRepository(db), SECURITY_KEY)
-    business_types_data = service.get_all_business_types(security_key)
-    
-    business_types_out = []
-    for bt in business_types_data["data"]:
-        bt_out = BusinessTypeOut.from_orm(bt)
-        if bt.Business_Media:
-            bt_out.Business_Media_URL = f"{request.base_url}{UPLOAD_DIRECTORY}/{bt.Business_Media}"
-        business_types_out.append(bt_out)
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.get_all_business_types(secret_key)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting all business types: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
 
-    return {
-        "status": "success",
-        "message": "Business types retrieved successfully.",
-        "data": business_types_out
-    }
+# ---------------------- Get Business Type by ID ----------------------
 
-@router.get("/businesstypes/{business_type_id}", response_model=dict)
-def get_business_type(
+@router.get("/business-types/{business_type_id}", response_model=dict)
+def get_business_type_by_id(
     business_type_id: int,
-    request: Request,
     db: Session = Depends(get_db),
-    security_key: str = Header(None)  # Accept security key in the request headers
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
 ):
     """
     Fetch a business type by its ID.
     """
-    if not security_key:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Security key is required."
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={"endpoint": f"/business-types/{business_type_id}", "method": "GET"}
         )
-    validate_security_key(security_key)
-    service = BusinessTypeService(BusinessTypeRepository(db), SECURITY_KEY)
-    business_type_data = service.get_business_type_by_id(business_type_id, security_key)
-    
-    bt = business_type_data["data"]
-    bt_out = BusinessTypeOut.from_orm(bt)
-    if bt.Business_Media:
-        bt_out.Business_Media_URL = f"{request.base_url}{UPLOAD_DIRECTORY}/{bt.Business_Media}"
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.get_business_type_by_id(business_type_id, secret_key)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting business type by ID: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
 
-    return {
-        "status": "success",
-        "message": "Business type retrieved successfully.",
-        "data": bt_out
-    }
+# ---------------------- Create Business Type ----------------------
 
-@router.post("/add-businesstypes", response_model=dict)
+@router.post("/add-business-type", response_model=dict)
 def create_business_type(
-    request: Request,
-    business_type_name: str = Form(...),
-    business_type_desc: Optional[str] = Form(None),
-    business_code: Optional[str] = Form(None),
-    business_status: Optional[str] = Form(None),
+    type_name: str = Form(...),
+    description: Optional[str] = Form(None),
+    color: Optional[str] = Form(None),
+    features: Optional[str] = Form(None),
     is_active: str = Form('Y'),
     business_media: Optional[UploadFile] = File(None),
+    icon: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
-    security_key: str = Header(None)
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
 ):
     """
-    Create a new business type with an optional file upload.
+    Create a new business type with optional file uploads.
     """
-    if not security_key:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Security key is required."
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={
+                "endpoint": "/add-business-type", 
+                "method": "POST",
+                "type_name": type_name
+            }
         )
-    validate_security_key(security_key)
-
-    business_type_data = BusinessTypeCreate(
-        Business_Type_Name=business_type_name,
-        Business_Type_Desc=business_type_desc,
-        Business_Code=business_code,
-        Business_Status=business_status,
-        Is_Active=is_active,
-    )
-
-    service = BusinessTypeService(BusinessTypeRepository(db), SECURITY_KEY)
-    new_business_type_data = service.create_business_type(business_type_data, business_media, security_key, added_by=1)
-    
-    bt = new_business_type_data["data"]
-    bt_out = BusinessTypeOut.from_orm(bt)
-    if bt.Business_Media:
-        bt_out.Business_Media_URL = f"{request.base_url}{UPLOAD_DIRECTORY}/{bt.Business_Media}"
-
-    if new_business_type_data["status"] == "error":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=new_business_type_data["message"]
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.create_business_type(
+            type_name=type_name,
+            description=description,
+            color=color,
+            features=features,
+            is_active=is_active,
+            business_media=business_media,
+            icon=icon,
+            secret_key=secret_key,
+            added_by=1  # Replace `1` with the actual user ID
         )
-    return {
-        "status": "success",
-        "message": "Business type created successfully.",
-        "data": bt_out
-    }
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating business type: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
 
-@router.put("/update-businesstypes/{business_type_id}", response_model=dict)
+# ---------------------- Update Business Type ----------------------
+
+@router.put("/update-business-type/{business_type_id}", response_model=dict)
 def update_business_type(
     business_type_id: int,
-    request: Request,
-    business_type_name: Optional[str] = Form(None),
-    business_type_desc: Optional[str] = Form(None),
-    business_code: Optional[str] = Form(None),
-    business_status: Optional[str] = Form(None),
+    type_name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    color: Optional[str] = Form(None),
+    features: Optional[str] = Form(None),
     is_active: Optional[str] = Form(None),
     business_media: Optional[UploadFile] = File(None),
+    icon: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
-    security_key: str = Header(None)
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
 ):
     """
-    Update an existing business type with an optional file upload.
+    Update an existing business type with optional file uploads.
     """
-    if not security_key:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Security key is required."
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={
+                "endpoint": f"/update-business-type/{business_type_id}", 
+                "method": "PUT",
+                "type_name": type_name if type_name else "unchanged"
+            }
         )
-    validate_security_key(security_key)
-
-    business_type_data = BusinessTypeUpdate(
-        Business_Type_Name=business_type_name,
-        Business_Type_Desc=business_type_desc,
-        Business_Code=business_code,
-        Business_Status=business_status,
-        Is_Active=is_active,
-    )
-
-    service = BusinessTypeService(BusinessTypeRepository(db), SECURITY_KEY)
-    updated_business_type_data = service.update_business_type(business_type_id, business_type_data, business_media, security_key, modified_by=1)
-    
-    bt = updated_business_type_data["data"]
-    bt_out = BusinessTypeOut.from_orm(bt)
-    if bt.Business_Media:
-        bt_out.Business_Media_URL = f"{request.base_url}{UPLOAD_DIRECTORY}/{bt.Business_Media}"
-
-    if updated_business_type_data["status"] == "error":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=updated_business_type_data["message"]
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.update_business_type(
+            business_type_id=business_type_id,
+            type_name=type_name,
+            description=description,
+            color=color,
+            features=features,
+            is_active=is_active,
+            business_media=business_media,
+            icon=icon,
+            secret_key=secret_key,
+            modified_by=1  # Replace `1` with the actual user ID
         )
-    return {
-        "status": "success",
-        "message": "Business type updated successfully.",
-        "data": bt_out
-    }
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating business type: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
 
-@router.delete("/delete-businesstypes/{business_type_id}", response_model=dict)
+# ---------------------- Delete Business Type ----------------------
+
+@router.delete("/delete-business-type/{business_type_id}", response_model=dict)
 def delete_business_type(
     business_type_id: int,
     db: Session = Depends(get_db),
-    security_key: str = Header(None)  # Accept security key in the request headers
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
 ):
     """
     Delete a business type by its ID.
     """
-    if not security_key:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Security key is required."
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={
+                "endpoint": f"/delete-business-type/{business_type_id}", 
+                "method": "DELETE"
+            }
         )
-    validate_security_key(security_key)
-    service = BusinessTypeService(BusinessTypeRepository(db), SECURITY_KEY)
-    service.delete_business_type(business_type_id, security_key, deleted_by=1)  # Assuming modified_by is 1 for this example
-    
-    # if service["status"] == "error":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail=service["message"]
-    #     )
-    return {
-        "status": "success",
-        "color":"success",
-        "message": "Business type deleted successfully."
-    }
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.delete_business_type(business_type_id, secret_key, deleted_by=1)  # Replace `1` with the actual user ID
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting business type: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+# ---------------------- Activate Business Type ----------------------
+
+@router.post("/activate-business-type/{business_type_id}", response_model=dict)
+def activate_business_type(
+    business_type_id: int,
+    db: Session = Depends(get_db),
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
+):
+    """
+    Activate a business type.
+    """
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={
+                "endpoint": f"/activate-business-type/{business_type_id}", 
+                "method": "POST"
+            }
+        )
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.activate_business_type(business_type_id, secret_key, modified_by=1)  # Replace `1` with the actual user ID
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error activating business type: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+# ---------------------- Deactivate Business Type ----------------------
+
+@router.post("/deactivate-business-type/{business_type_id}", response_model=dict)
+def deactivate_business_type(
+    business_type_id: int,
+    db: Session = Depends(get_db),
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
+):
+    """
+    Deactivate a business type.
+    """
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={
+                "endpoint": f"/deactivate-business-type/{business_type_id}", 
+                "method": "POST"
+            }
+        )
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.deactivate_business_type(business_type_id, secret_key, modified_by=1)  # Replace `1` with the actual user ID
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deactivating business type: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+# ---------------------- Get Active Business Types ----------------------
+
+@router.get("/active-business-types", response_model=dict)
+def get_active_business_types(
+    db: Session = Depends(get_db),
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
+):
+    """
+    Get all active business types.
+    """
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={"endpoint": "/active-business-types", "method": "GET"}
+        )
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.get_active_business_types(secret_key)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting active business types: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+# ---------------------- Get Inactive Business Types ----------------------
+
+@router.get("/inactive-business-types", response_model=dict)
+def get_inactive_business_types(
+    db: Session = Depends(get_db),
+    request: Request = None,
+    secret_key: str = Depends(validate_secret_key)
+):
+    """
+    Get all inactive business types.
+    """
+    try:
+        device_info, ip_address = get_device_info_and_ip(request)
+        
+        # Log security event
+        security_service = SecurityService(db)
+        security_service.log_security_event(
+            event_type=SecurityEventType.API_ACCESS,
+            ip_address=ip_address,
+            user_agent=device_info,
+            event_metadata={"endpoint": "/inactive-business-types", "method": "GET"}
+        )
+        
+        service = BusinessTypeService(BusinessTypeRepository(db), config.SECRET_KEY)
+        result = service.get_inactive_business_types(secret_key)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting inactive business types: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )

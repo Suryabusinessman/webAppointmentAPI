@@ -1,39 +1,32 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
 # Base schema for UserType
 class UserTypeBase(BaseModel):
-    User_Type_Name: str
-    User_Type_Desc: Optional[str]
-    Default_Page: Optional[str]
-    Is_Member: Optional[str] = 'Y'
-    Is_Active: Optional[str] = 'Y'
-    Is_Deleted: Optional[str] = 'N'
+    type_name: str = Field(..., description="User type name")
+    description: Optional[str] = Field(None, description="User type description")
+    default_page: Optional[str] = Field(None, description="Default page for user type")
+    permissions: Optional[str] = Field(None, description="User type permissions")
+    is_active: str = Field(default="Y", description="Active status")
 
 # Schema for creating a new UserType
 class UserTypeCreate(UserTypeBase):
-    Added_By: Optional[int]
+    pass
 
 # Schema for updating an existing UserType
-class UserTypeUpdate(UserTypeBase):
-    User_Type_Name: str
-    User_Type_Desc: Optional[str]
-    Default_Page: Optional[str]
-    Is_Member: Optional[str] = 'Y'
-    Is_Active: Optional[str] = 'Y'
-    Modified_By: Optional[int]
-    Modified_On: Optional[datetime] = datetime.utcnow()
+class UserTypeUpdate(BaseModel):
+    type_name: Optional[str] = Field(None, description="User type name")
+    description: Optional[str] = Field(None, description="User type description")
+    default_page: Optional[str] = Field(None, description="Default page for user type")
+    permissions: Optional[str] = Field(None, description="User type permissions")
+    is_active: Optional[str] = Field(None, description="Active status")
 
 # Schema for outputting UserType data
-class UserTypeOut(UserTypeBase):
-    User_Type_Id: int
-    Added_By: Optional[int]
-    Added_On: datetime
-    Modified_By: Optional[int]
-    Modified_On: Optional[datetime]
-    Deleted_By: Optional[int]
-    Deleted_On: Optional[datetime]
+class UserTypeResponse(UserTypeBase):
+    user_type_id: int = Field(..., description="User type ID")
+    created_at: datetime = Field(..., description="Creation timestamp")
+    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
 
     class Config:
         orm_mode = True

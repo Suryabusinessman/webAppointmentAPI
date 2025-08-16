@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app.models.BusinessModules.businesstype import BusinessType
-from app.schemas.BusinessModules.businesstype import BusinessTypeCreate, BusinessTypeUpdate
+from app.schemas.BusinessModules.businesstype import BusinessTypeCreate, BusinessTypeUpdate, BusinessTypeResponse
 from fastapi import HTTPException, status
 from datetime import datetime
 
@@ -10,8 +10,8 @@ class BusinessTypeRepository:
         self.db = db
 
     def get_all(self):
-        """Fetch all active user types."""
-        business_types = self.db.query(BusinessType).filter(BusinessType.Is_Deleted == 'N').all()
+        """Fetch all active business types."""
+        business_types = self.db.query(BusinessType).filter(BusinessType.is_active == 'Y').all()
         if not business_types:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -22,8 +22,8 @@ class BusinessTypeRepository:
     def get_by_id(self, business_type_id: int):
         """Fetch a business type by its ID."""
         business_type = self.db.query(BusinessType).filter(
-            BusinessType.Business_Type_Id == business_type_id,
-            BusinessType.Is_Deleted == 'N'
+            BusinessType.business_type_id == business_type_id,
+            BusinessType.is_active == 'Y'
         ).first()
         if not business_type:
             raise HTTPException(
@@ -35,8 +35,8 @@ class BusinessTypeRepository:
     def get_by_name(self, business_type_name: str):
         """Fetch a business type by its name."""
         business_type = self.db.query(BusinessType).filter(
-            BusinessType.Business_Type_Name == business_type_name,
-            BusinessType.Is_Deleted == 'N'
+            BusinessType.type_name == business_type_name,
+            BusinessType.is_active == 'Y'
         ).first()
         return business_type
 
@@ -44,25 +44,27 @@ class BusinessTypeRepository:
         """Create a new business type."""
         # Check if a business type with the same name already exists
         existing_business_type = self.db.query(BusinessType).filter(
-            BusinessType.Business_Type_Name == business_type_data.Business_Type_Name,
-            BusinessType.Is_Deleted == 'N'
+            BusinessType.type_name == business_type_data.type_name,
+            BusinessType.is_active == 'Y'
         ).first()
 
-        # Log a message if the business type already exists
         if existing_business_type:
-            print(f"Business Type with name '{business_type_data.Business_Type_Name}' already exists. Creating a new business type.")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Business Type with name '{business_type_data.type_name}' already exists."
+            )
 
-        # Create the new business type regardless of whether the name exists
+        # Create the new business type
         new_business_type = BusinessType(
-            Business_Type_Name=business_type_data.Business_Type_Name,
-            Business_Type_Desc=business_type_data.Business_Type_Desc,
-            Business_Code=business_type_data.Business_Code,
-            Business_Status=business_type_data.Business_Status,
-            Is_Active=business_type_data.Is_Active,
-            Business_Media=business_type_data.Business_Media,
-            Is_Deleted='N',
-            Added_By=added_by,
-            Added_On=datetime.utcnow()
+            type_name=business_type_data.type_name,
+            description=business_type_data.description,
+            icon=business_type_data.icon,
+            color=business_type_data.color,
+            features=business_type_data.features,
+            business_media=business_type_data.business_media,
+            is_active=business_type_data.is_active,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
         self.db.add(new_business_type)
         self.db.commit()
@@ -74,34 +76,35 @@ class BusinessTypeRepository:
         business_type = self.get_by_id(business_type_id)  # Ensure the business type exists
 
         # Check if the new name already exists for another business type
-        if business_type_data.Business_Type_Name:
+        if business_type_data.type_name:
             existing_business_type = self.db.query(BusinessType).filter(
-                BusinessType.Business_Type_Name == business_type_data.Business_Type_Name,
-                BusinessType.Business_Type_Id != business_type_id,
-                BusinessType.Is_Deleted == 'N'
+                BusinessType.type_name == business_type_data.type_name,
+                BusinessType.business_type_id != business_type_id,
+                BusinessType.is_active == 'Y'
             ).first()
             if existing_business_type:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Business Type with name '{business_type_data.Business_Type_Name}' already exists."
+                    detail=f"Business Type with name '{business_type_data.type_name}' already exists."
                 )
-            business_type.Business_Type_Name = business_type_data.Business_Type_Name
+            business_type.type_name = business_type_data.type_name
 
         # Update other fields if provided
-        if business_type_data.Business_Type_Desc:
-            business_type.Business_Type_Desc = business_type_data.Business_Type_Desc
-        if business_type_data.Business_Code:
-            business_type.Business_Code = business_type_data.Business_Code
-        if business_type_data.Business_Status:
-            business_type.Business_Status = business_type_data.Business_Status
-        if business_type_data.Is_Active is not None:
-            business_type.Is_Active = business_type_data.Is_Active
-        if business_type_data.Business_Media:
-            business_type.Business_Media = business_type_data.Business_Media
+        if business_type_data.description is not None:
+            business_type.description = business_type_data.description
+        if business_type_data.icon is not None:
+            business_type.icon = business_type_data.icon
+        if business_type_data.color is not None:
+            business_type.color = business_type_data.color
+        if business_type_data.features is not None:
+            business_type.features = business_type_data.features
+        if business_type_data.business_media is not None:
+            business_type.business_media = business_type_data.business_media
+        if business_type_data.is_active is not None:
+            business_type.is_active = business_type_data.is_active
 
         # Update audit fields
-        business_type.Modified_By = modified_by
-        business_type.Modified_On = datetime.utcnow()
+        business_type.updated_at = datetime.utcnow()
 
         self.db.commit()
         self.db.refresh(business_type)
@@ -112,9 +115,32 @@ class BusinessTypeRepository:
         business_type = self.get_by_id(business_type_id)  # Ensure the business type exists
 
         # Perform a soft delete
-        business_type.Is_Deleted = 'Y'
-        business_type.Deleted_By = deleted_by
-        business_type.Deleted_On = datetime.utcnow()
+        business_type.is_active = 'N'
+        business_type.updated_at = datetime.utcnow()
 
         self.db.commit()
-        return {"message": f"Business Type with ID {business_type_id} deleted successfully."}
+        return business_type
+
+    def get_active_business_types(self):
+        """Get all active business types."""
+        return self.db.query(BusinessType).filter(BusinessType.is_active == 'Y').all()
+
+    def get_inactive_business_types(self):
+        """Get all inactive business types."""
+        return self.db.query(BusinessType).filter(BusinessType.is_active == 'N').all()
+
+    def activate_business_type(self, business_type_id: int, modified_by: int):
+        """Activate a business type."""
+        business_type = self.get_by_id(business_type_id)
+        business_type.is_active = 'Y'
+        business_type.updated_at = datetime.utcnow()
+        self.db.commit()
+        return business_type
+
+    def deactivate_business_type(self, business_type_id: int, modified_by: int):
+        """Deactivate a business type."""
+        business_type = self.get_by_id(business_type_id)
+        business_type.is_active = 'N'
+        business_type.updated_at = datetime.utcnow()
+        self.db.commit()
+        return business_type

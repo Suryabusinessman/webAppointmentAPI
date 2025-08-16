@@ -1,30 +1,28 @@
-from sqlalchemy import Column, Integer, String, CHAR, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Enum
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 from app.core.database import Base
 
 class LocationMaster(Base):
-    __tablename__ = 'locationmaster'
+    __tablename__ = 'location_master'
 
-    Location_Id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    Location_Name = Column(String(100), unique=True, index=True, nullable=False)
-    Location_City_Name = Column(String(100), nullable=False)
-    Location_Dist_Name = Column(String(100), nullable=False)
-    Location_State_Name = Column(String(100), nullable=False)
-    Location_Country_Name = Column(String(100), nullable=False)
-    Location_Desc = Column(String(255), nullable=True)
-    Is_Active = Column(CHAR(1), nullable=False, default='Y')
-    Added_By = Column(Integer, nullable=True)
-    Added_On = Column(DateTime, default=datetime.utcnow, nullable=False)
+    location_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    location_name = Column(String(100), unique=True, index=True, nullable=False)
+    location_city_name = Column(String(100), nullable=False)
+    location_dist_name = Column(String(100), nullable=False)
+    location_state_name = Column(String(100), nullable=False)
+    location_country_name = Column(String(100), nullable=False)
+    location_desc = Column(String(255), nullable=True)
+    is_active = Column(Enum("Y", "N"), nullable=False, default="Y")
+    
+    added_by = Column(Integer, nullable=True)
+    added_on = Column(DateTime, server_default=func.now(), nullable=False)
+    modified_by = Column(Integer, nullable=True)
+    modified_on = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    deleted_by = Column(Integer, nullable=True)
+    deleted_on = Column(DateTime, nullable=True)
+    is_deleted = Column(Enum("Y", "N"), nullable=False, default="N")
 
-    Modified_By = Column(Integer, nullable=True)
-    Modified_On = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    Deleted_By = Column(Integer, nullable=True)
-    Deleted_On = Column(DateTime, default=datetime.utcnow, nullable=True)
-
-    Is_Deleted = Column(CHAR(1), nullable=False, default='N')
-
-
-    LocationActivePincode = relationship("LocationActivePincode", back_populates="LocationMaster")
-    LocationUserAddress = relationship("LocationUserAddress", back_populates="LocationMaster")
+    location_active_pincodes = relationship("LocationActivePincode", back_populates="location_master")
+    location_user_addresses = relationship("LocationUserAddress", back_populates="location_master")

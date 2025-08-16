@@ -29,6 +29,15 @@ class UserSessionUpdate(BaseModel):
 class LogoutRequest(BaseModel):
     token: str
 
+class SendEmailOtpRequest(BaseModel):
+    email: str
+    purpose: str = "EMAIL_VERIFICATION"
+
+class VerifyEmailOtpRequest(BaseModel):
+    email: str
+    otp: str
+    purpose: str = "EMAIL_VERIFICATION"
+
 class UserSessionOut(UserSessionBase):
     """
     Schema for returning user session details in responses.

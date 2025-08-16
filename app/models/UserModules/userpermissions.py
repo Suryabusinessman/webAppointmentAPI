@@ -1,31 +1,32 @@
 # models/user_permission.py
 
-from sqlalchemy import Column, Integer, CHAR, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, CHAR, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 from app.core.database import Base
 
 
 class UserPermission(Base):
-    __tablename__ = "userpermissions"
+    __tablename__ = "user_permissions"
 
-    User_Permission_Id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_permission_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
-    User_Type_Id = Column(Integer, ForeignKey("usertypes.User_Type_Id"), nullable=False)
-    Page_Id = Column(Integer, ForeignKey("pages.Page_Id"), nullable=False)
+    user_type_id = Column(Integer, ForeignKey("user_types.user_type_id"), nullable=False)
+    page_id = Column(Integer, ForeignKey("pages.page_id"), nullable=False)
 
-    Can_View = Column(CHAR(1), default='N', nullable=False)
-    Can_Create = Column(CHAR(1), default='N', nullable=False)
-    Can_Update = Column(CHAR(1), default='N', nullable=False)
-    Can_Delete = Column(CHAR(1), default='N', nullable=False)
+    can_view = Column(Enum("Y", "N"), default="N", nullable=False)
+    can_create = Column(Enum("Y", "N"), default="N", nullable=False)
+    can_update = Column(Enum("Y", "N"), default="N", nullable=False)
+    can_delete = Column(Enum("Y", "N"), default="N", nullable=False)
 
-    Added_By = Column(Integer, nullable=True)
-    Added_On = Column(DateTime, default=datetime.utcnow, nullable=False)
-    Modified_By = Column(Integer, nullable=True)
-    Modified_On = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    Is_Deleted = Column(CHAR(1), default='N', nullable=False)
-    Deleted_By = Column(Integer, nullable=True)
-    Deleted_On = Column(DateTime, nullable=True)
+    added_by = Column(Integer, nullable=True)
+    added_on = Column(DateTime, server_default=func.now(), nullable=False)
+    modified_by = Column(Integer, nullable=True)
+    modified_on = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    is_deleted = Column(Enum("Y", "N"), default="N", nullable=False)
+    deleted_by = Column(Integer, nullable=True)
+    deleted_on = Column(DateTime, nullable=True)
 
     # ✅ Relationships
     page = relationship("Page", back_populates="user_permissions")

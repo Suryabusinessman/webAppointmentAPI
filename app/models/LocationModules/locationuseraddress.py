@@ -1,36 +1,35 @@
-from sqlalchemy import Column, Integer, String, CHAR, DateTime,ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 from app.core.database import Base
 
 class LocationUserAddress(Base):
-    __tablename__ = 'locationuseraddress'
+    __tablename__ = 'location_user_addresses'
 
-    User_Address_Id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    User_Id = Column(Integer, ForeignKey('users.User_Id'), nullable=False)  # FK to users table
-    Location_Id = Column(Integer, ForeignKey('locationmaster.Location_Id'), nullable=False)  # FK to locationmaster table
-    Pincode_Id = Column(Integer, ForeignKey('locationactivepincode.Pincode_Id'), nullable=False)  # FK to locationactivepincode table
-    Address_Line1 = Column(String(255),unique=True, index=True, nullable=False)
-    Address_Line2 = Column(String(255), nullable=True)
-    City = Column(String(100), nullable=False)
-    Pincode = Column(String(10), nullable=False)
-    Longitude = Column(String(20), nullable=False)
-    Latitude = Column(String(20), nullable=False)
-    Map_Location_Url = Column(String(255), nullable=True)
-    Address_Type = Column(String(50), nullable=False)  # e.g., Home, Office, etc.
-    Is_Default = Column(CHAR(1), nullable=False, default='N')
-    Is_Active = Column(CHAR(1), nullable=False, default='Y')
-    Added_By = Column(Integer, nullable=True)
-    Added_On = Column(DateTime, default=datetime.utcnow, nullable=False)
+    user_address_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)  # FK to users table
+    location_id = Column(Integer, ForeignKey('location_master.location_id'), nullable=False)  # FK to locationmaster table
+    pincode_id = Column(Integer, ForeignKey('location_active_pincodes.pincode_id'), nullable=False)  # FK to locationactivepincode table
+    address_line1 = Column(String(255), unique=True, index=True, nullable=False)
+    address_line2 = Column(String(255), nullable=True)
+    city = Column(String(100), nullable=False)
+    pincode = Column(String(10), nullable=False)
+    longitude = Column(String(20), nullable=False)
+    latitude = Column(String(20), nullable=False)
+    map_location_url = Column(String(255), nullable=True)
+    address_type = Column(String(50), nullable=False)  # e.g., Home, Office, etc.
+    is_default = Column(Enum("Y", "N"), nullable=False, default="N")
+    is_active = Column(Enum("Y", "N"), nullable=False, default="Y")
+    
+    added_by = Column(Integer, nullable=True)
+    added_on = Column(DateTime, server_default=func.now(), nullable=False)
+    modified_by = Column(Integer, nullable=True)
+    modified_on = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    deleted_by = Column(Integer, nullable=True)
+    deleted_on = Column(DateTime, nullable=True)
+    is_deleted = Column(Enum("Y", "N"), nullable=False, default="N")
 
-    Modified_By = Column(Integer, nullable=True)
-    Modified_On = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    Deleted_By = Column(Integer, nullable=True)
-    Deleted_On = Column(DateTime, default=datetime.utcnow, nullable=True)
-
-    Is_Deleted = Column(CHAR(1), nullable=False, default='N')
-
-    LocationMaster = relationship("LocationMaster", back_populates="LocationUserAddress")
-    locationactivepincode = relationship("LocationActivePincode", back_populates="LocationUserAddress")
+    location_master = relationship("LocationMaster", back_populates="location_user_addresses")
+    location_active_pincode = relationship("LocationActivePincode", back_populates="location_user_addresses")
     user = relationship("User", back_populates="locationuseraddress")

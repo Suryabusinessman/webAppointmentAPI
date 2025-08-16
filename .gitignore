@@ -34,8 +34,6 @@ alembic/versions/*.bak
 # Database files
 *.sqlite3
 *.db
-*.sql
-
 
 # Static and media files (if applicable)
 staticfiles/
@@ -67,3 +65,5 @@ dist/
 *.tmp
 *.temp
 *.~undo-tree
+/.env
+/uploads

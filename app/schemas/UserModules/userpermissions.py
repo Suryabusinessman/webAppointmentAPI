@@ -1,47 +1,47 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
 
 # Base Schema (shared)
 class UserPermissionBase(BaseModel):
-    User_Type_Id: int
-    Page_Id: int
-    Can_View: Optional[str] = "N"
-    Can_Create: Optional[str] = "N"
-    Can_Update: Optional[str] = "N"
-    Can_Delete: Optional[str] = "N"
+    user_type_id: int = Field(..., description="User type ID")
+    page_id: int = Field(..., description="Page ID")
+    can_view: Optional[str] = Field("N", description="Can view permission")
+    can_create: Optional[str] = Field("N", description="Can create permission")
+    can_update: Optional[str] = Field("N", description="Can update permission")
+    can_delete: Optional[str] = Field("N", description="Can delete permission")
 
 
 # Create Schema
 class UserPermissionCreate(UserPermissionBase):
-    Added_By: Optional[int] 
+    added_by: Optional[int] = Field(None, description="User ID who created the permission")
 
 
 # Update Schema
 class UserPermissionUpdate(BaseModel):
-    User_Type_Id: int
-    Page_Id: int
-    Can_View: Optional[str] = "N"
-    Can_Create: Optional[str] = "N"
-    Can_Update: Optional[str] = "N"
-    Can_Delete: Optional[str] = "N"
-    Modified_By: Optional[int] 
-    Is_Deleted: Optional[str] = 'N'
-    Deleted_By: Optional[int] 
-    Deleted_On: Optional[datetime] 
+    user_type_id: Optional[int] = Field(None, description="User type ID")
+    page_id: Optional[int] = Field(None, description="Page ID")
+    can_view: Optional[str] = Field("N", description="Can view permission")
+    can_create: Optional[str] = Field("N", description="Can create permission")
+    can_update: Optional[str] = Field("N", description="Can update permission")
+    can_delete: Optional[str] = Field("N", description="Can delete permission")
+    modified_by: Optional[int] = Field(None, description="User ID who modified the permission")
+    is_deleted: Optional[str] = Field('N', description="Soft delete flag")
+    deleted_by: Optional[int] = Field(None, description="User ID who deleted the permission")
+    deleted_on: Optional[datetime] = Field(None, description="Deletion timestamp")
 
 
-# Output Schema
-class UserPermissionOut(UserPermissionBase):
-    User_Permission_Id: int
-    Added_By: Optional[int]
-    Added_On: datetime
-    Modified_By: Optional[int]
-    Modified_On: datetime
-    Is_Deleted: Optional[str] = 'N'
-    Deleted_By: Optional[int]
-    Deleted_On: Optional[datetime]
+# Response Schema
+class UserPermissionResponse(UserPermissionBase):
+    user_permission_id: int = Field(..., description="Unique identifier for the user permission")
+    added_by: Optional[int] = Field(None, description="User ID who created the permission")
+    added_on: datetime = Field(..., description="Creation timestamp")
+    modified_by: Optional[int] = Field(None, description="User ID who modified the permission")
+    modified_on: datetime = Field(..., description="Last modification timestamp")
+    is_deleted: Optional[str] = Field('N', description="Soft delete flag")
+    deleted_by: Optional[int] = Field(None, description="User ID who deleted the permission")
+    deleted_on: Optional[datetime] = Field(None, description="Deletion timestamp")
 
     class Config:
-        orm_mode = True
+        from_attributes = True

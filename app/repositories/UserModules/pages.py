@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from app.models.UserModules.pages import Page
-from app.schemas.UserModules.pages import PageCreate, PageUpdate
+from app.schemas.UserModules.pages import PageCreate, PageUpdate, PageResponse
 from datetime import datetime
 import pytz  # For timezone handling
 
@@ -15,7 +15,7 @@ class PageRepository:
     
     def get_all_pages(self):
         """Fetch all active pages."""
-        pages = self.db.query(Page).filter(Page.Is_Deleted == 'N').all()
+        pages = self.db.query(Page).filter(Page.is_deleted == 'N').all()
         if not pages:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -26,103 +26,133 @@ class PageRepository:
     # ---------------------- Get Page by ID ----------------------
 
     def get_by_id(self, page_id: int):
-        """Fetch a pages by its ID."""
-        pages = self.db.query(Page).filter(
-            Page.Page_Id == page_id,
-            Page.Is_Deleted == 'N'
+        """Fetch a page by its ID."""
+        page = self.db.query(Page).filter(
+            Page.page_id == page_id,
+            Page.is_deleted == 'N'
         ).first()
-        if not pages:
+        if not page:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"pages with ID {page_id} not found."
+                detail=f"Page with ID {page_id} not found."
             )
-        return pages
+        return page
     
-# ---------------------- Get by page name ----------------------
+    # ---------------------- Get by page name ----------------------
     def get_by_name(self, page_name: str):
-        """Fetch a pages by its name."""
-        pages = self.db.query(Page).filter(
-            Page.Page_Name == page_name,
-            Page.Is_Deleted == 'N'
+        """Fetch a page by its name."""
+        page = self.db.query(Page).filter(
+            Page.page_name == page_name,
+            Page.is_deleted == 'N'
         ).first()
-        return pages
+        return page
+
     # ---------------------- Create Page ----------------------
 
     def create_page(self, page_data: PageCreate, added_by: int):
-        """Create a new pages."""
-        # Check if a pages with the same name already exists
-        existing_pages = self.db.query(Page).filter(
-            Page.Page_Name == page_data.Page_Name,
-            Page.Is_Deleted == 'N'
+        """Create a new page."""
+        # Check if a page with the same name already exists
+        existing_page = self.db.query(Page).filter(
+            Page.page_name == page_data.page_name,
+            Page.is_deleted == 'N'
         ).first()
 
-        # Log a message if the pages already exists
-        if existing_pages:
-            print(f"Pages with name '{page_data.Page_Name}' already exists. Creating a new pages.")
+        # Log a message if the page already exists
+        if existing_page:
+            print(f"Page with name '{page_data.page_name}' already exists. Creating a new page.")
 
-        # Create the new pages regardless of whether the name exists
-        new_pages = Page(
-            Page_Name=page_data.Page_Name,
-            Page_Display_Text=page_data.Page_Display_Text,
-            Page_Navigation_URL=page_data.Page_Navigation_URL,
-            Page_Parent_Id=page_data.Page_Parent_Id,
-            Is_Internal=page_data.Is_Internal,
-            Is_Deleted='N',
-            Added_By=added_by,
-            Added_On=datetime.utcnow()
+        # Create the new page regardless of whether the name exists
+        new_page = Page(
+            page_name=page_data.page_name,
+            page_display_text=page_data.page_display_text,
+            page_navigation_url=page_data.page_navigation_url,
+            page_parent_id=page_data.page_parent_id,
+            is_internal=page_data.is_internal,
+            is_deleted='N',
+            added_by=added_by,
+            added_on=datetime.utcnow()
         )
-        self.db.add(new_pages)
+        self.db.add(new_page)
         self.db.commit()
-        self.db.refresh(new_pages)
-        return new_pages
+        self.db.refresh(new_page)
+        return new_page
 
     # ---------------------- Update Page ----------------------
 
     def update_page(self, page_id: int, page_data: PageUpdate, modified_by: int):
-        """Update an existing pages."""
-        pages = self.get_by_id(page_id)  # Ensure the pages exists
+        """Update an existing page."""
+        page = self.get_by_id(page_id)  # Ensure the page exists
 
-        # Check if the new name already exists for another pages
-        if page_data.Page_Name:
-            existing_user_type = self.db.query(Page).filter(
-                Page.Page_Name == page_data.Page_Name,
-                Page.Page_Id != page_id,
-                Page.Is_Deleted == 'N'
+        # Check if the new name already exists for another page
+        if page_data.page_name:
+            existing_page = self.db.query(Page).filter(
+                Page.page_name == page_data.page_name,
+                Page.page_id != page_id,
+                Page.is_deleted == 'N'
             ).first()
-            if existing_user_type:
+            if existing_page:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"User type with name '{page_data.Page_Name}' already exists."
+                    detail=f"Page with name '{page_data.page_name}' already exists."
                 )
-            pages.Page_Name = page_data.Page_Name
+            page.page_name = page_data.page_name
 
         # Update other fields if provided
-        if page_data.Page_Display_Text:
-            pages.Page_Display_Text = page_data.Page_Display_Text
-        if page_data.Page_Navigation_URL:
-            pages.Page_Navigation_URL = page_data.Page_Navigation_URL
-        if page_data.Page_Parent_Id is not None:
-            pages.Page_Parent_Id = page_data.Page_Parent_Id
-        if page_data.Is_Internal is not None:
-            pages.Is_Internal = page_data.Is_Internal
+        if page_data.page_display_text:
+            page.page_display_text = page_data.page_display_text
+        if page_data.page_navigation_url:
+            page.page_navigation_url = page_data.page_navigation_url
+        if page_data.page_parent_id is not None:
+            page.page_parent_id = page_data.page_parent_id
+        if page_data.is_internal is not None:
+            page.is_internal = page_data.is_internal
 
         # Update audit fields
-        pages.Modified_By = modified_by
-        pages.Modified_On = datetime.utcnow()
+        page.modified_by = modified_by
+        page.modified_on = datetime.utcnow()
 
         self.db.commit()
-        self.db.refresh(pages)
-        return pages
+        self.db.refresh(page)
+        return page
+
     # ---------------------- Delete Page ----------------------
 
     def delete(self, page_id: int, deleted_by: int):
-        """Soft delete a pages by its ID."""
-        pages = self.get_by_id(page_id)  # Ensure the pages exists
+        """Soft delete a page by its ID."""
+        page = self.get_by_id(page_id)  # Ensure the page exists
 
         # Perform a soft delete
-        pages.Is_Deleted = 'Y'
-        pages.Deleted_By = deleted_by
-        pages.Deleted_On = datetime.utcnow()
+        page.is_deleted = 'Y'
+        page.deleted_by = deleted_by
+        page.deleted_on = datetime.utcnow()
 
         self.db.commit()
-        return {"message": f"Pages with ID {page_id} deleted successfully."}
+        return page
+
+    # ---------------------- Additional Methods ----------------------
+
+    def get_active_pages(self):
+        """Get all active pages."""
+        return self.db.query(Page).filter(Page.is_deleted == 'N').all()
+
+    def get_inactive_pages(self):
+        """Get all inactive pages."""
+        return self.db.query(Page).filter(Page.is_deleted == 'Y').all()
+
+    def activate_page(self, page_id: int, modified_by: int):
+        """Activate a page."""
+        page = self.get_by_id(page_id)
+        page.is_deleted = 'N'
+        page.modified_by = modified_by
+        page.modified_on = datetime.utcnow()
+        self.db.commit()
+        return page
+
+    def deactivate_page(self, page_id: int, modified_by: int):
+        """Deactivate a page."""
+        page = self.get_by_id(page_id)
+        page.is_deleted = 'Y'
+        page.modified_by = modified_by
+        page.modified_on = datetime.utcnow()
+        self.db.commit()
+        return page

@@ -1,41 +1,41 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
 
 class PageBase(BaseModel):
-    Page_Name: str
-    Page_Display_Text: str
-    Page_Navigation_URL: Optional[str]
-    Page_Parent_Id: Optional[int]
-    Is_Internal: Optional[str] = 'Y'
+    page_name: str = Field(..., description="Unique name for the page")
+    page_display_text: str = Field(..., description="Display text for the page")
+    page_navigation_url: Optional[str] = Field(None, description="URL for navigation")
+    page_parent_id: Optional[int] = Field(None, description="Parent page ID for hierarchy")
+    is_internal: Optional[str] = Field('Y', description="Whether the page is internal or external")
 
 
 class PageCreate(PageBase):
-    Added_By: Optional[int]
+    added_by: Optional[int] = Field(None, description="User ID who created the page")
 
 
 class PageUpdate(BaseModel):
-    Page_Name: Optional[str]
-    Page_Display_Text: Optional[str]
-    Page_Navigation_URL: Optional[str]
-    Page_Parent_Id: Optional[int]
-    Is_Internal: Optional[str] = 'Y'
-    Modified_By: Optional[int]
-    Is_Deleted: Optional[str]
-    Deleted_By: Optional[int]
-    Deleted_On: Optional[datetime]= datetime.utcnow()
+    page_name: Optional[str] = Field(None, description="Unique name for the page")
+    page_display_text: Optional[str] = Field(None, description="Display text for the page")
+    page_navigation_url: Optional[str] = Field(None, description="URL for navigation")
+    page_parent_id: Optional[int] = Field(None, description="Parent page ID for hierarchy")
+    is_internal: Optional[str] = Field('Y', description="Whether the page is internal or external")
+    modified_by: Optional[int] = Field(None, description="User ID who modified the page")
+    is_deleted: Optional[str] = Field('N', description="Soft delete flag")
+    deleted_by: Optional[int] = Field(None, description="User ID who deleted the page")
+    deleted_on: Optional[datetime] = Field(None, description="Deletion timestamp")
 
 
-class PageOut(PageBase):
-    Page_Id: int
-    Added_By: Optional[int]
-    Added_On: datetime
-    Modified_By: Optional[int]
-    Modified_On: datetime
-    Deleted_By: Optional[int]
-    Deleted_On: Optional[datetime]
-    Is_Deleted: Optional[str] = 'N'
+class PageResponse(PageBase):
+    page_id: int = Field(..., description="Unique identifier for the page")
+    added_by: Optional[int] = Field(None, description="User ID who created the page")
+    added_on: datetime = Field(..., description="Creation timestamp")
+    modified_by: Optional[int] = Field(None, description="User ID who modified the page")
+    modified_on: datetime = Field(..., description="Last modification timestamp")
+    deleted_by: Optional[int] = Field(None, description="User ID who deleted the page")
+    deleted_on: Optional[datetime] = Field(None, description="Deletion timestamp")
+    is_deleted: Optional[str] = Field('N', description="Soft delete flag")
 
     class Config:
-        orm_mode = True
+        from_attributes = True

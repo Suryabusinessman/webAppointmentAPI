@@ -90,7 +90,7 @@ def stamp_database():
     """Stamp the database with the current state if no migrations exist."""
     try:
         logging.info("Stamping the database with the current state...")
-        run(["alembic", "stamp", "head"], check=True)
+        run(["python", "-m", "alembic", "stamp", "head"], check=True)
         logging.info("Database stamped successfully.")
     except CalledProcessError as e:
         logging.error("Failed to stamp the database.")
@@ -101,7 +101,7 @@ def generate_migration():
     migration_message = input("Enter migration message: ")
     try:
         logging.info("Generating migration...")
-        run(["alembic", "revision", "--autogenerate", "-m", migration_message], check=True)
+        run(["python", "-m", "alembic", "revision", "--autogenerate", "-m", migration_message], check=True)
         logging.info("Migration file generated successfully.")
     except CalledProcessError as e:
         logging.error("No changes detected or an error occurred during migration generation.")
@@ -111,7 +111,7 @@ def apply_migration():
     """Apply the migration to the database."""
     try:
         logging.info("Applying migration...")
-        run(["alembic", "upgrade", "head"], check=True)
+        run(["python", "-m", "alembic", "upgrade", "head"], check=True)
         logging.info("Migration applied successfully.")
     except CalledProcessError as e:
         logging.error("An error occurred while applying the migration. Rolling back changes...")
@@ -122,7 +122,7 @@ def rollback_migration():
     """Rollback the last migration in case of failure."""
     try:
         logging.info("Rolling back the last migration...")
-        run(["alembic", "downgrade", "-1"], check=True)
+        run(["python", "-m", "alembic", "downgrade", "-1"], check=True)
         logging.info("Rollback completed successfully.")
     except CalledProcessError:
         logging.critical("Rollback failed. Please check the database manually.")

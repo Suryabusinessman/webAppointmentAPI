@@ -29,7 +29,7 @@ class UserTypeService:
     def get_user_type_by_id(self, user_type_id: int, security_key: str):
         """Fetch a user type by its ID."""
         self.validate_security_key(security_key)
-        user_type = self.user_type_repository.get_by_id(user_type_id)
+        user_type = self.user_type_repository.get_active_by_id(user_type_id)
         if not user_type:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -46,11 +46,11 @@ class UserTypeService:
         self.validate_security_key(security_key)
 
         # Check if a user type with the same name already exists
-        existing_user_type = self.user_type_repository.get_by_name(user_type_data.User_Type_Name)
+        existing_user_type = self.user_type_repository.get_by_name(user_type_data.type_name)
         if existing_user_type:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User type with name '{user_type_data.User_Type_Name}' already exists."
+                detail=f"User type with name '{user_type_data.type_name}' already exists."
             )
 
         # Create the new user type
@@ -66,21 +66,16 @@ class UserTypeService:
         """Update an existing user type."""
         self.validate_security_key(security_key)
 
-        # Ensure the user type exists
-        user_type = self.user_type_repository.get_by_id(user_type_id)
-        if not user_type:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User type with ID {user_type_id} not found."
-            )
+        # Ensure the user type exists and is active
+        user_type = self.user_type_repository.get_active_by_id(user_type_id)
 
         # Prevent updating to a duplicate name
-        if user_type_data.User_Type_Name:
-            existing_user_type = self.user_type_repository.get_by_name(user_type_data.User_Type_Name)
-            if existing_user_type and existing_user_type.User_Type_Id != user_type_id:
+        if user_type_data.type_name:
+            existing_user_type = self.user_type_repository.get_by_name(user_type_data.type_name)
+            if existing_user_type and existing_user_type.user_type_id != user_type_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Another user type with name '{user_type_data.User_Type_Name}' already exists."
+                    detail=f"Another user type with name '{user_type_data.type_name}' already exists."
                 )
 
         # Update the user type
@@ -88,7 +83,7 @@ class UserTypeService:
         return {
             "status": "success",
             "color":"success",
-            "message": f"User type with ID {user_type_data.User_Type_Name} updated successfully.",
+            "message": f"User type with ID {user_type_data.type_name} updated successfully.",
             "data": updated_user_type
         }
 
@@ -96,19 +91,58 @@ class UserTypeService:
         """Delete a user type by its ID."""
         self.validate_security_key(security_key)
 
-        # Ensure the user type exists
+        # Ensure the user type exists (can be active or inactive)
         user_type = self.user_type_repository.get_by_id(user_type_id)
-        if not user_type:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User type with ID {user_type_id} not found."
-            )
 
-        # Perform the deletion
-        result = self.user_type_repository.delete(user_type_id, deleted_by)
+        # Delete the user type
+        deleted_user_type = self.user_type_repository.delete(user_type_id, deleted_by)
         return {
             "status": "success",
             "color":"success",
             "message": f"User type with ID {user_type_id} deleted successfully.",
-            "data": result
+            "data": deleted_user_type
+        }
+
+    def activate_user_type(self, user_type_id: int, security_key: str):
+        """Activate a user type."""
+        self.validate_security_key(security_key)
+        
+        activated_user_type = self.user_type_repository.activate(user_type_id)
+        return {
+            "status": "success",
+            "color": "success",
+            "message": f"User type with ID {user_type_id} activated successfully.",
+            "data": activated_user_type
+        }
+
+    def deactivate_user_type(self, user_type_id: int, security_key: str):
+        """Deactivate a user type."""
+        self.validate_security_key(security_key)
+        
+        deactivated_user_type = self.user_type_repository.deactivate(user_type_id)
+        return {
+            "status": "success",
+            "color": "success",
+            "message": f"User type with ID {user_type_id} deactivated successfully.",
+            "data": deactivated_user_type
+        }
+
+    def get_active_user_types(self, security_key: str):
+        """Fetch all active user types."""
+        self.validate_security_key(security_key)
+        user_types = self.user_type_repository.get_active()
+        return {
+            "status": "success",
+            "message": "Active user types retrieved successfully.",
+            "data": user_types
+        }
+
+    def get_inactive_user_types(self, security_key: str):
+        """Fetch all inactive user types."""
+        self.validate_security_key(security_key)
+        user_types = self.user_type_repository.get_inactive()
+        return {
+            "status": "success",
+            "message": "Inactive user types retrieved successfully.",
+            "data": user_types
         }
