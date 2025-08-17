@@ -29,6 +29,61 @@ class LocationMasterService:
             "message": "Locations retrieved successfully.",
             "data": locations
         }
+
+    def get_active_locations(self, security_key: str):
+        """Fetch all active locations."""
+        self.validate_security_key(security_key)
+        locations = self.location_master_repository.get_active_locations()
+        if not locations:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active locations found in the database."
+            )
+        return {
+            "status": "success",
+            "message": "Active locations retrieved successfully.",
+            "data": locations
+        }
+
+    def get_inactive_locations(self, security_key: str):
+        """Fetch all inactive locations."""
+        self.validate_security_key(security_key)
+        locations = self.location_master_repository.get_inactive_locations()
+        if not locations:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No inactive locations found in the database."
+            )
+        return {
+            "status": "success",
+            "message": "Inactive locations retrieved successfully.",
+            "data": locations
+        }
+
+    def toggle_location_status(self, location_id: int, security_key: str, modified_by: int):
+        """Toggle the active status of a location."""
+        self.validate_security_key(security_key)
+        
+        # Check if the location exists
+        existing_location = self.location_master_repository.get_by_id(location_id)
+        if not existing_location:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Location with ID {location_id} not found."
+            )
+
+        # Toggle the location status
+        updated_location = self.location_master_repository.toggle_active_status(location_id, modified_by)
+        if not updated_location:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to toggle location status."
+            )
+        return {
+            "status": "success",
+            "message": "Location status toggled successfully.",
+            "data": updated_location
+        }
     def get_location_by_id(self, location_id: int, security_key: str):
         """Fetch a location by its ID."""
         self.validate_security_key(security_key)
@@ -48,11 +103,11 @@ class LocationMasterService:
         self.validate_security_key(security_key)
 
         # Check if a location with the same name already exists
-        existing_location = self.location_master_repository.get_by_name(location_data.Location_Name)
+        existing_location = self.location_master_repository.get_by_name(location_data.location_name)
         if existing_location:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Location with name '{location_data.Location_Name}' already exists."
+                detail=f"Location with name '{location_data.location_name}' already exists."
             )
 
         # Create the new location
@@ -102,10 +157,10 @@ class LocationMasterService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Location with ID {location_id} not found."
             )
-        if existing_location.Is_Deleted == 'Y':    
+        if existing_location.is_deleted == 'Y':    
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Business Category is already deleted."
+                        detail="Location is already deleted."
                     )
         # Delete the location
         deleted_location = self.location_master_repository.delete(location_id, deleted_by)

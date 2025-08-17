@@ -10,7 +10,7 @@ class LocationMasterRepository:
 
     def get_all(self):
         """Fetch all active locations."""
-        locations = self.db.query(LocationMaster).filter(LocationMaster.Is_Deleted == 'N').all()
+        locations = self.db.query(LocationMaster).filter(LocationMaster.is_deleted == 'N').all()
         if not locations:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -18,11 +18,55 @@ class LocationMasterRepository:
             )
         return locations
 
+    def get_active_locations(self):
+        """Fetch all active locations."""
+        locations = self.db.query(LocationMaster).filter(
+            LocationMaster.is_deleted == 'N',
+            LocationMaster.is_active == 'Y'
+        ).all()
+        if not locations:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active locations found in the database."
+            )
+        return locations
+
+    def get_inactive_locations(self):
+        """Fetch all inactive locations."""
+        locations = self.db.query(LocationMaster).filter(
+            LocationMaster.is_deleted == 'N',
+            LocationMaster.is_active == 'N'
+        ).all()
+        if not locations:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No inactive locations found in the database."
+            )
+        return locations
+
+    def toggle_active_status(self, location_id: int, modified_by: int):
+        """Toggle the active status of a location."""
+        location = self.get_by_id(location_id)
+        if location.is_deleted == 'Y':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Location with ID {location_id} is deleted and cannot be modified."
+            )
+        
+        # Toggle the active status
+        location.is_active = 'N' if location.is_active == 'Y' else 'Y'
+        location.modified_by = modified_by
+        location.modified_on = datetime.utcnow()
+        
+        self.db.commit()
+        self.db.refresh(location)
+        return location
+
     def get_by_id(self, location_id: int):
         """Fetch a location by its ID."""
         location = self.db.query(LocationMaster).filter(
-            LocationMaster.Location_Id == location_id,
-            LocationMaster.Is_Deleted == 'N'
+            LocationMaster.location_id == location_id,
+            LocationMaster.is_deleted == 'N'
         ).first()
         if not location:
             raise HTTPException(
@@ -33,8 +77,8 @@ class LocationMasterRepository:
     def get_by_name(self, location_name: str):
         """Fetch a location by its name."""
         location = self.db.query(LocationMaster).filter(
-            LocationMaster.Location_Name == location_name,
-            LocationMaster.Is_Deleted == 'N'
+            LocationMaster.location_name == location_name,
+            LocationMaster.is_deleted == 'N'
         ).first()
         # if not location:
         #     raise HTTPException(
@@ -46,30 +90,30 @@ class LocationMasterRepository:
         """Create a new location."""
         # Check if a location with the same name already exists
         existing_location = self.db.query(LocationMaster).filter(
-            LocationMaster.Location_Name == location_data.Location_Name,
-            LocationMaster.Is_Deleted == 'N'
+            LocationMaster.location_name == location_data.location_name,
+            LocationMaster.is_deleted == 'N'
         ).first()
 
         # Log a message if the location already exists
         if existing_location:
-            print(f"Location with name '{location_data.Location_Name}' already exists. Creating a new location.")
+            print(f"Location with name '{location_data.location_name}' already exists. Creating a new location.")
         if existing_location:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Location with name '{location_data.Location_Name}' already exists."
+                detail=f"Location with name '{location_data.location_name}' already exists."
             )
         # Create the new location regardless of whether the name exists
         new_location = LocationMaster(
-            Location_Name=location_data.Location_Name,
-            Location_City_Name=location_data.Location_City_Name,
-            Location_Dist_Name=location_data.Location_Dist_Name,
-            Location_State_Name=location_data.Location_State_Name,
-            Location_Country_Name=location_data.Location_Country_Name,
-            Location_Desc=location_data.Location_Desc,
-            Is_Active=location_data.Is_Active, 
-            Is_Deleted='N',
-            Added_By=added_by,
-            Added_On=datetime.utcnow()
+            location_name=location_data.location_name,
+            location_city_name=location_data.location_city_name,
+            location_dist_name=location_data.location_dist_name,
+            location_state_name=location_data.location_state_name,
+            location_country_name=location_data.location_country_name,
+            location_desc=location_data.location_desc,
+            is_active=location_data.is_active, 
+            is_deleted='N',
+            added_by=added_by,
+            added_on=datetime.utcnow()
         )
         self.db.add(new_location)
         self.db.commit()
@@ -78,48 +122,48 @@ class LocationMasterRepository:
     def update(self, location_id: int, location_data: LocationMasterUpdate, modified_by: int):
         """Update an existing location."""
         location = self.get_by_id(location_id)
-        if location.Is_Deleted == 'Y':
+        if location.is_deleted == 'Y':
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Location with ID {location_id} is deleted and cannot be updated."
             )
-        if location_data.Location_Name:
-            existing_location = self.get_by_name(location_data.Location_Name)
-            if existing_location and existing_location.Location_Id != location_id:
+        if location_data.location_name:
+            existing_location = self.get_by_name(location_data.location_name)
+            if existing_location and existing_location.location_id != location_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Location with name '{location_data.Location_Name}' already exists."
+                    detail=f"Location with name '{location_data.location_name}' already exists."
                 )
-            location.Location_Name = location_data.Location_Name
-        if location_data.Location_City_Name:
-            location.Location_City_Name = location_data.Location_City_Name
-        if location_data.Location_Dist_Name:
-            location.Location_Dist_Name = location_data.Location_Dist_Name
-        if location_data.Location_State_Name:
-            location.Location_State_Name = location_data.Location_State_Name
-        if location_data.Location_Country_Name:
-            location.Location_Country_Name = location_data.Location_Country_Name
-        if location_data.Location_Desc:
-            location.Location_Desc = location_data.Location_Desc
-        if location_data.Is_Active:
-            location.Is_Active = location_data.Is_Active
+            location.location_name = location_data.location_name
+        if location_data.location_city_name:
+            location.location_city_name = location_data.location_city_name
+        if location_data.location_dist_name:
+            location.location_dist_name = location_data.location_dist_name
+        if location_data.location_state_name:
+            location.location_state_name = location_data.location_state_name
+        if location_data.location_country_name:
+            location.location_country_name = location_data.location_country_name
+        if location_data.location_desc:
+            location.location_desc = location_data.location_desc
+        if location_data.is_active:
+            location.is_active = location_data.is_active
         # for key, value in location_data.dict(exclude_unset=True).items():
         #     setattr(location, key, value)
-        location.Modified_By = modified_by
-        location.Modified_On = datetime.utcnow()
+        location.modified_by = modified_by
+        location.modified_on = datetime.utcnow()
         self.db.commit()
         self.db.refresh(location)
         return location
     def delete(self, location_id: int, deleted_by: int):
         """Delete a location."""
         location = self.get_by_id(location_id)
-        if location.Is_Deleted == 'Y':
+        if location.is_deleted == 'Y':
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Location with ID {location_id} is already deleted."
             )
-        location.Is_Deleted = 'Y'
-        location.Deleted_By = deleted_by
-        location.Deleted_On = datetime.utcnow()
+        location.is_deleted = 'Y'
+        location.deleted_by = deleted_by
+        location.deleted_on = datetime.utcnow()
         self.db.commit()
         return {"detail": f"Location with ID {location_id} has been deleted."}

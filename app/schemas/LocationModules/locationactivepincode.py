@@ -21,6 +21,7 @@ class LocationActivePincodeUpdate(BaseModel):
 
 class LocationActivePincodeResponse(LocationActivePincodeBase):
     pincode_id: int = Field(..., description="Pincode ID")
+    location_name: Optional[str] = Field(None, description="Location name")
     added_by: Optional[int] = Field(None, description="Added by user ID")
     added_on: datetime = Field(..., description="Creation timestamp")
     modified_by: Optional[int] = Field(None, description="Modified by user ID")

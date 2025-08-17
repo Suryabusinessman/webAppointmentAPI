@@ -211,7 +211,7 @@ def add_cors_middleware(app):
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"],
         allow_headers=["*"],
         expose_headers=["X-Process-Time", "X-Request-ID"],
     )

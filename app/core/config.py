@@ -8,7 +8,7 @@ load_dotenv()
 class Config:
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "FastAPI Project")
     VERSION: str = os.getenv("VERSION", "1.0.0")
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "mysql+mysqlconnector://Appointment_inchbreath:b90a28132d973fb81fa953355d346f231d159543@e4uqm9.h.filess.io:3307/Appointment_inchbreath")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "mysql+mysqlconnector://fastapi_db:fastapi123@localhost:3306/fastapidba")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "88AC1A95756D9259823CCA6E17145A0")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     

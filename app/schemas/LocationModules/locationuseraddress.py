@@ -38,12 +38,16 @@ class LocationUserAddressUpdate(BaseModel):
 
 class LocationUserAddressResponse(LocationUserAddressBase):
     user_address_id: int = Field(..., description="User address ID")
+    user_name: Optional[str] = Field(None, description="User name")
+    location_name: Optional[str] = Field(None, description="Location name")
+    pincode_value: Optional[str] = Field(None, description="Pincode value")
     added_by: Optional[int] = Field(None, description="Added by user ID")
     added_on: datetime = Field(..., description="Creation timestamp")
     modified_by: Optional[int] = Field(None, description="Modified by user ID")
     modified_on: Optional[datetime] = Field(None, description="Last update timestamp")
     deleted_by: Optional[int] = Field(None, description="Deleted by user ID")
     deleted_on: Optional[datetime] = Field(None, description="Deletion timestamp")
+    is_deleted: str = Field(..., description="Soft delete status")
 
     class Config:
         orm_mode = True

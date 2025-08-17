@@ -15,60 +15,73 @@ class LocationActivePincodeService:
                 detail="Invalid security key."
             )
 
-    def get_all_active_pincodes(self, security_key: str):
+    def get_all_pincodes(self, security_key: str):
+        """Fetch all pincodes (both active and inactive)."""
+        self.validate_security_key(security_key)
+        pincodes = self.location_active_pincode_repository.get_all()
+        return {
+            "status": "success",
+            "message": "Pincodes retrieved successfully.",
+            "data": pincodes
+        }
+
+    def get_active_pincodes(self, security_key: str):
         """Fetch all active pincodes."""
         self.validate_security_key(security_key)
-        active_pincodes = self.location_active_pincode_repository.get_all()
-        if not active_pincodes:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No active pincodes found in the database."
-            )
+        active_pincodes = self.location_active_pincode_repository.get_active_pincodes()
         return {
             "status": "success",
             "message": "Active pincodes retrieved successfully.",
             "data": active_pincodes
         }
-    def get_active_pincode_by_id(self, pincode_id: int, security_key: str):
-        """Fetch an active pincode by its ID."""
+
+    def get_inactive_pincodes(self, security_key: str):
+        """Fetch all inactive pincodes."""
         self.validate_security_key(security_key)
-        active_pincode = self.location_active_pincode_repository.get_by_id(pincode_id)
-        if not active_pincode:
+        inactive_pincodes = self.location_active_pincode_repository.get_inactive_pincodes()
+        return {
+            "status": "success",
+            "message": "Inactive pincodes retrieved successfully.",
+            "data": inactive_pincodes
+        }
+
+    def get_pincode_by_id(self, pincode_id: int, security_key: str):
+        """Fetch a pincode by its ID."""
+        self.validate_security_key(security_key)
+        pincode = self.location_active_pincode_repository.get_by_id(pincode_id)
+        if not pincode:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Active pincode with ID {pincode_id} not found."
+                detail=f"Pincode with ID {pincode_id} not found."
             )
         return {
             "status": "success",
-            "message": "Active pincode retrieved successfully.",
-            "data": active_pincode
+            "message": "Pincode retrieved successfully.",
+            "data": pincode
         }
-    def create_active_pincode(self, pincode_data: LocationActivePincodeCreate, security_key: str, added_by: int):
-        """Create a new active pincode."""
+
+    def create_pincode(self, pincode_data: LocationActivePincodeCreate, security_key: str, added_by: int):
+        """Create a new pincode."""
         self.validate_security_key(security_key)
 
         # Check if a pincode with the same code already exists
-        existing_pincode = self.location_active_pincode_repository.get_by_pincode(pincode_data.Pincode)
+        existing_pincode = self.location_active_pincode_repository.get_by_pincode(pincode_data.pincode)
         if existing_pincode:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Active pincode with code '{pincode_data.Pincode}' already exists."
+                detail=f"Pincode with code '{pincode_data.pincode}' already exists."
             )
 
-        # Create the new active pincode
+        # Create the new pincode
         new_pincode = self.location_active_pincode_repository.create(pincode_data, added_by)
-        # if not new_pincode:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        #         detail="Failed to create active pincode."
-        #     )
         return {
             "status": "success",
-            "message": "Active pincode created successfully.",
+            "message": "Pincode created successfully.",
             "data": new_pincode
         }
-    def update_active_pincode(self, pincode_id: int, pincode_data: LocationActivePincodeUpdate, security_key: str, modified_by: int):
-        """Update an existing active pincode."""
+
+    def update_pincode(self, pincode_id: int, pincode_data: LocationActivePincodeUpdate, security_key: str, modified_by: int):
+        """Update an existing pincode."""
         self.validate_security_key(security_key)
 
         # Check if the pincode exists
@@ -76,23 +89,19 @@ class LocationActivePincodeService:
         if not existing_pincode:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Active pincode with ID {pincode_id} not found."
+                detail=f"Pincode with ID {pincode_id} not found."
             )
 
-        # Update the active pincode
+        # Update the pincode
         updated_pincode = self.location_active_pincode_repository.update(pincode_id, pincode_data, modified_by)
-        if not updated_pincode:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update active pincode."
-            )
         return {
             "status": "success",
-            "message": "Active pincode updated successfully.",
+            "message": "Pincode updated successfully.",
             "data": updated_pincode
         }
-    def delete_active_pincode(self, pincode_id: int, security_key: str, deleted_by: int):
-        """Delete an active pincode."""
+
+    def delete_pincode(self, pincode_id: int, security_key: str, deleted_by: int):
+        """Delete a pincode."""
         self.validate_security_key(security_key)
 
         # Check if the pincode exists
@@ -100,18 +109,33 @@ class LocationActivePincodeService:
         if not existing_pincode:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Active pincode with ID {pincode_id} not found."
+                detail=f"Pincode with ID {pincode_id} not found."
             )
 
-        # Delete the active pincode
+        # Delete the pincode
         deleted_pincode = self.location_active_pincode_repository.delete(pincode_id, deleted_by)
-        if not deleted_pincode:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete active pincode."
-            )
         return {
             "status": "success",
-            "message": "Active pincode deleted successfully.",
+            "message": "Pincode deleted successfully.",
             "data": deleted_pincode
+        }
+
+    def toggle_pincode_status(self, pincode_id: int, security_key: str, modified_by: int):
+        """Toggle the active status of a pincode."""
+        self.validate_security_key(security_key)
+        
+        # Check if the pincode exists
+        existing_pincode = self.location_active_pincode_repository.get_by_id(pincode_id)
+        if not existing_pincode:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Pincode with ID {pincode_id} not found."
+            )
+
+        # Toggle the pincode status
+        updated_pincode = self.location_active_pincode_repository.toggle_active_status(pincode_id, modified_by)
+        return {
+            "status": "success",
+            "message": "Pincode status toggled successfully.",
+            "data": updated_pincode
         }

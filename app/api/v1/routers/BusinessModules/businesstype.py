@@ -272,7 +272,7 @@ def delete_business_type(
 
 # ---------------------- Activate Business Type ----------------------
 
-@router.post("/activate-business-type/{business_type_id}", response_model=dict)
+@router.put("/activate-business-type/{business_type_id}", response_model=dict)
 def activate_business_type(
     business_type_id: int,
     db: Session = Depends(get_db),
@@ -293,7 +293,7 @@ def activate_business_type(
             user_agent=device_info,
             event_metadata={
                 "endpoint": f"/activate-business-type/{business_type_id}", 
-                "method": "POST"
+                "method": "PUT"
             }
         )
         
@@ -313,7 +313,7 @@ def activate_business_type(
 
 # ---------------------- Deactivate Business Type ----------------------
 
-@router.post("/deactivate-business-type/{business_type_id}", response_model=dict)
+@router.put("/deactivate-business-type/{business_type_id}", response_model=dict)
 def deactivate_business_type(
     business_type_id: int,
     db: Session = Depends(get_db),
@@ -334,7 +334,7 @@ def deactivate_business_type(
             user_agent=device_info,
             event_metadata={
                 "endpoint": f"/deactivate-business-type/{business_type_id}", 
-                "method": "POST"
+                "method": "PUT"
             }
         )
         
