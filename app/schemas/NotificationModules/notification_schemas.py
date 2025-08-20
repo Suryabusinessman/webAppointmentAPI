@@ -12,6 +12,8 @@ class NotificationType(str, Enum):
     SECURITY = "SECURITY"
     SYSTEM = "SYSTEM"
     PROMOTION = "PROMOTION"
+    BOOKING = "BOOKING"
+    PAYMENT = "PAYMENT"
 
 class NotificationPriority(str, Enum):
     """Notification priority levels."""

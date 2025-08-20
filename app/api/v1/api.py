@@ -6,6 +6,7 @@ from app.api.v1.routers.UserModules import authrouter, users, usertypes, userper
 from app.api.v1.routers.BusinessModules import businessmanuser, businesstype, businesscategories
 from app.api.v1.routers.LocationModules import locationmaster, locationactivepincode, locationuseraddress
 from app.api.v1.routers.NotificationModules import notification_router
+from app.api.v1.routers.NewsModules.newspost import router as newspost_router
 
 # Create the main API router
 api_router = APIRouter()
@@ -32,6 +33,19 @@ api_router.include_router(locationmaster.router, prefix="/locations", tags=["Loc
 api_router.include_router(locationactivepincode.router, prefix="/location-pincodes", tags=["Location Pincodes"])
 api_router.include_router(locationuseraddress.router, prefix="/user-addresses", tags=["User Addresses"])
 api_router.include_router(notification_router.router, tags=["Notifications"])
+
+# News Modules
+api_router.include_router(newspost_router, prefix="/news", tags=["News Management"])
+
+# Import additional news routers
+from app.api.v1.routers.NewsModules.newscomments import router as newscomments_router
+from app.api.v1.routers.NewsModules.newslike import router as newslike_router
+from app.api.v1.routers.NewsModules.newsshare import router as newsshare_router
+
+# Include additional news routers
+api_router.include_router(newscomments_router, prefix="/news", tags=["News Comments"])
+api_router.include_router(newslike_router, prefix="/news", tags=["News Likes"])
+api_router.include_router(newsshare_router, prefix="/news", tags=["News Shares"])
 
 # Root endpoint
 @api_router.get("/", tags=["Root"])

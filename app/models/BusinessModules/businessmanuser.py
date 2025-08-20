@@ -63,3 +63,6 @@ class BusinessUser(Base):
     garage_bookings = relationship("GarageBooking", back_populates="business_user")
     menu_items = relationship("MenuItem", back_populates="business_user")
     catering_orders = relationship("CateringOrder", back_populates="business_user")
+    
+    # News relationships
+    news_posts = relationship("NewsPost", back_populates="business_user")

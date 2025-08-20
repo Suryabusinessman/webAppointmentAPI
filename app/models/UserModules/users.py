@@ -93,3 +93,8 @@ class User(Base):
     security_blocks = relationship("SecurityBlock", foreign_keys="SecurityBlock.user_id", back_populates="user")
     created_blocks = relationship("SecurityBlock", foreign_keys="SecurityBlock.created_by_user_id", back_populates="created_by_user")
     
+    # News relationships
+    news_posts = relationship("NewsPost", foreign_keys="NewsPost.author_id", back_populates="author")
+    added_news_posts = relationship("NewsPost", foreign_keys="NewsPost.added_by", back_populates="added_by_user")
+    updated_news_posts = relationship("NewsPost", foreign_keys="NewsPost.updated_by", back_populates="updated_by_user")
+    

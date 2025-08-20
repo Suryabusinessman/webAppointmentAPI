@@ -190,6 +190,52 @@ class NotificationService:
                 detail=f"Failed to fetch notifications: {str(e)}"
             )
 
+    def _convert_to_response_model(self, notification: Notification) -> dict:
+        """Convert SQLAlchemy Notification model to response dictionary."""
+        # Handle notification_type validation - if it's not in the enum, use "INFO" as fallback
+        notification_type = notification.notification_type
+        try:
+            # Validate that the notification_type is valid
+            from app.schemas.NotificationModules.notification_schemas import NotificationType
+            if notification_type not in [e.value for e in NotificationType]:
+                print(f"Warning: Invalid notification_type '{notification_type}' found, using 'INFO' as fallback")
+                notification_type = "INFO"  # Fallback to INFO if invalid
+        except Exception as e:
+            print(f"Warning: Error validating notification_type '{notification_type}': {e}, using 'INFO' as fallback")
+            notification_type = "INFO"  # Fallback to INFO if validation fails
+        
+        # Handle priority validation - if it's not in the enum, use "MEDIUM" as fallback
+        priority = notification.priority
+        try:
+            from app.schemas.NotificationModules.notification_schemas import NotificationPriority
+            if priority not in [e.value for e in NotificationPriority]:
+                print(f"Warning: Invalid priority '{priority}' found, using 'MEDIUM' as fallback")
+                priority = "MEDIUM"  # Fallback to MEDIUM if invalid
+        except Exception as e:
+            print(f"Warning: Error validating priority '{priority}': {e}, using 'MEDIUM' as fallback")
+            priority = "MEDIUM"  # Fallback to MEDIUM if invalid
+            priority = "MEDIUM"  # Fallback to MEDIUM if validation fails
+        
+        # Handle is_read validation - ensure it's either "Y" or "N"
+        is_read = notification.is_read
+        if is_read not in ["Y", "N"]:
+            print(f"Warning: Invalid is_read value '{is_read}' found, using 'N' as fallback")
+            is_read = "N"  # Fallback to "N" if invalid
+        
+        return {
+            "notification_id": notification.notification_id,
+            "user_id": notification.user_id,
+            "title": notification.title,
+            "message": notification.message,
+            "notification_type": notification_type,
+            "priority": priority,
+            "action_url": notification.action_url,
+            "action_data": notification.action_data,
+            "is_read": is_read,
+            "read_at": notification.read_at,
+            "created_at": notification.created_at
+        }
+
     def mark_notification_as_read(self, notification_id: int, user_id: int) -> Notification:
         """Mark a notification as read."""
         try:
@@ -231,4 +277,34 @@ class NotificationService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to get notification count: {str(e)}"
+            )
+
+    def get_high_priority_notifications(self, user_id: int, limit: int = 10) -> List[Notification]:
+        """Get high priority notifications for a user."""
+        try:
+            return self.notification_repo.get_high_priority_notifications(user_id, limit)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch high priority notifications: {str(e)}"
+            )
+
+    def get_notifications_by_type(self, user_id: int, notification_type: str, limit: int = 20) -> List[Notification]:
+        """Get notifications by type for a user."""
+        try:
+            return self.notification_repo.get_notifications_by_type(user_id, notification_type, limit)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch notifications by type: {str(e)}"
+            )
+
+    def get_notification_by_id(self, notification_id: int, user_id: int) -> Notification:
+        """Get a specific notification by ID for a user."""
+        try:
+            return self.notification_repo.get_notification_by_id(notification_id, user_id)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch notification: {str(e)}"
             ) 
